@@ -17,7 +17,7 @@ fn main() -> Result<(), String> {
                 .expect("Failed to convert text to instructions"))
         .collect::<Vec<u8>>();
 
-    let mut machine = Machine::new(
+    let machine = Machine::new(
         instructions,
         vec![
             InputPeripheral::new(),

@@ -1,11 +1,9 @@
 
 use std::{collections::{HashMap, VecDeque, HashSet}, hash::Hash};
 
-use crate::instruction::{
-    Instruction,
-};
+use crate::instruction::Instruction;
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug)]
 enum HoldReason {
     RegisterPort(u16),
     Port(u16),
@@ -13,7 +11,7 @@ enum HoldReason {
     Observe(HashSet<u32>),
 }
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct HoldingProcess {
     process_id: u32,
     reason: HoldReason,
@@ -39,17 +37,12 @@ pub struct Process {
 impl Process {
     pub fn new(
         initial_program_counter: usize,
-        instructions: &Vec<u8>,
     ) -> Process {
         Process { 
             program_counter: initial_program_counter,
             stack: Vec::new(),
             addr_stack: Vec::new(),
-            heap_map: instructions
-                .iter()
-                .enumerate()
-                .map(|(index, instr)| (index as u32, *instr))
-                .collect(),
+            heap_map: HashMap::new(),
             registered_port: None,
             incoming_messages: VecDeque::new(),
         }
@@ -149,6 +142,7 @@ impl Process {
 
         let bytes = value.to_le_bytes();
         for (store_addr, byte) in store_range.zip(bytes) {
+            // println!("!!! STORING: [{}] = {}", store_addr, byte);
             self.heap_map.insert(store_addr, byte);
         }
 
@@ -157,6 +151,7 @@ impl Process {
 
     pub fn perform_load(
         &mut self,
+        instructions: &Vec<u8>,
         byte_count: u8,
         offset: u8,
     ) -> MachineResult<()> {
@@ -172,12 +167,24 @@ impl Process {
         let mut byte_buffer = [0u8; 8];
 
         let load_bytes = load_range
-            .map(|addr| *self.heap_map.get(&addr).expect("ERROR: Load failure"))
+            .map(|addr| {
+                // println!("!!! LOADED: [{}] = {:?}", addr, self.heap_map.get(&addr));
+                *self.heap_map
+                    .get(&addr)
+                    .unwrap_or_else(|| {
+                        if (addr as usize) < instructions.len() {
+                            &instructions[addr as usize]
+                        } else {
+                            &0
+                        }
+                    })
+            })
             .collect::<Vec<u8>>();
         
         byte_buffer[..load_bytes.len()]
             .copy_from_slice(&load_bytes[..load_bytes.len()]);
 
+        // println!("!!! LOADED: [{}] = {}", load_start_addr, u64::from_le_bytes(byte_buffer));
         self.stack.push(u64::from_le_bytes(byte_buffer));
 
         Ok(())
@@ -211,15 +218,15 @@ pub struct Machine {
     holding_processes: HashMap<u32, HoldingProcess>,
     peripherals: Vec<Peripheral>,
     instructions_since_switch: u32,
+    execution_count: HashMap<usize, u64>,
 }
 
 type MachineResult<Success> = Result<Success, String>;
 
 impl Machine {
-    fn main_process(instructions: &Vec<u8>) -> Process {
+    fn main_process() -> Process {
         Process::new(
             0,
-            instructions,
         )
     }
 
@@ -227,7 +234,7 @@ impl Machine {
         instructions: Vec<u8>,
         peripherals: Vec<Peripheral>,
     ) -> Machine {
-        let main_process = Machine::main_process(&instructions);
+        let main_process = Machine::main_process();
 
         Machine {
             instructions,
@@ -239,6 +246,7 @@ impl Machine {
             holding_processes: HashMap::new(),
             peripherals,
             instructions_since_switch: 0,
+            execution_count: HashMap::new(),
         }
     }
 
@@ -266,7 +274,14 @@ impl Machine {
         ((active_program_counter as usize) < self.instructions.len())
             .then_some(()).ok_or(format!("Out of bounds program counter value: {}", active_program_counter))?;
         
-        let instruction_code = self.instructions[active_program_counter as usize];
+        let instruction_code = *active_process
+            .heap_map
+            .get(&(active_program_counter as u32))
+            .unwrap_or_else(|| &self.instructions[active_program_counter as usize]);
+        
+        *self.execution_count
+            .entry(active_program_counter)
+            .or_insert(0) += 1;
         
         let instruction = Instruction::from_repr(instruction_code)
             .ok_or(format!(
@@ -275,14 +290,36 @@ impl Machine {
                 active_program_counter
             ))?;
 
-        println!(
-            "!!! PId: {},\n\tinstruction: {:?}@{},\n\tstack: {:?}\n\taddr-stack: {:?}",
-            active_process_id,
-            instruction,
-            active_program_counter,
-            active_process.stack,
-            active_process.addr_stack,
-        );
+        // println!(
+        //     "!!! PId: {},\n\tinstruction: {:?}@{},\n\tstack: {:?}\n\taddr-stack: {:?}",
+        //     active_process_id,
+        //     instruction,
+        //     active_program_counter,
+        //     active_process.stack.iter().map(|i| *i as i64).collect::<Vec<i64>>(),
+        //     active_process.addr_stack.iter().map(|i| *i as i64).collect::<Vec<i64>>(),
+        // );
+        // let start = 765;
+        // let end = start + 128;
+        // let mem = (start..end).step_by(8)
+        //     .map(|addr| {
+        //         let mut bytes = vec![];
+        //         for byte_addr in addr..(addr+8) {
+        //             let byte = active_process
+        //                 .heap_map
+        //                 .get(&byte_addr)
+        //                 .unwrap_or_else(||
+        //                     if (byte_addr as usize) < self.instructions.len() {
+        //                         &self.instructions[byte_addr as usize]
+        //                     } else {
+        //                         &0
+        //                     }
+        //                 );
+        //             bytes.push(*byte);
+        //         }
+
+        //         i64::from_le_bytes(bytes.try_into().unwrap())
+        //     });
+        // for (value, addr) in mem.zip((start..end).step_by(8)) { println!("!!! \t{}: [{}]", addr, value) }
 
         let pc_offset: usize =
             match instruction {
@@ -298,6 +335,18 @@ impl Machine {
                     active_process.stack.push(push_val);
 
                     1 + 8
+                },
+                Instruction::PushStackCount => {
+                    let stack_count = active_process.stack.len();
+                    active_process.stack.push(stack_count as u64);
+
+                    1
+                },
+                Instruction::PushAddrCount => {
+                    let addr_count = active_process.addr_stack.len();
+                    active_process.stack.push(addr_count as u64);
+
+                    1
                 },
                 Instruction::PushAddr => {
                     let push_start = active_program_counter + 1;
@@ -458,12 +507,12 @@ impl Machine {
                     1
                 },
                 Instruction::ShiftRight => {
-                    active_process.perform_integer_math(&|lhs, rhs| rhs >> lhs)?;
+                    active_process.perform_integer_math(&|lhs, rhs| lhs >> rhs)?;
 
                     1
                 },
                 Instruction::ShiftLeft => {
-                    active_process.perform_integer_math(&|lhs, rhs| rhs << lhs)?;
+                    active_process.perform_integer_math(&|lhs, rhs| lhs << rhs)?;
 
                     1
                 },
@@ -662,6 +711,7 @@ impl Machine {
                 Instruction::Load1 => {
                     let offset = self.instructions[active_program_counter + 1 as usize];
                     active_process.perform_load(
+                        &self.instructions,
                         1,
                         offset,
                     )?;
@@ -671,6 +721,7 @@ impl Machine {
                 Instruction::Load2 => {
                     let offset = self.instructions[active_program_counter + 1 as usize];
                     active_process.perform_load(
+                        &self.instructions,
                         2,
                         offset,
                     )?;
@@ -680,6 +731,7 @@ impl Machine {
                 Instruction::Load3 => {
                     let offset = self.instructions[active_program_counter + 1 as usize];
                     active_process.perform_load(
+                        &self.instructions,
                         3,
                         offset,
                     )?;
@@ -689,6 +741,7 @@ impl Machine {
                 Instruction::Load4 => {
                     let offset = self.instructions[active_program_counter + 1 as usize];
                     active_process.perform_load(
+                        &self.instructions,
                         4,
                         offset,
                     )?;
@@ -698,6 +751,7 @@ impl Machine {
                 Instruction::Load5 => {
                     let offset = self.instructions[active_program_counter + 1 as usize];
                     active_process.perform_load(
+                        &self.instructions,
                         5,
                         offset,
                     )?;
@@ -707,6 +761,7 @@ impl Machine {
                 Instruction::Load6 => {
                     let offset = self.instructions[active_program_counter + 1 as usize];
                     active_process.perform_load(
+                        &self.instructions,
                         6,
                         offset,
                     )?;
@@ -716,6 +771,7 @@ impl Machine {
                 Instruction::Load7 => {
                     let offset = self.instructions[active_program_counter + 1 as usize];
                     active_process.perform_load(
+                        &self.instructions,
                         7,
                         offset,
                     )?;
@@ -725,6 +781,7 @@ impl Machine {
                 Instruction::Load8 => {
                     let offset = self.instructions[active_program_counter + 1 as usize];
                     active_process.perform_load(
+                        &self.instructions,
                         8,
                         offset,
                     )?;
@@ -895,7 +952,7 @@ impl Machine {
                     }
 
                     let mut process_ids_to_update = HashSet::<u32>::new();
-                    for (_, holding) in &self.holding_processes {
+                    for holding in self.holding_processes.values() {
                         match &holding.reason {
                             HoldReason::Observe(hold_ids)
                                 if hold_ids.contains(&active_process_id) => {
@@ -909,7 +966,7 @@ impl Machine {
                         .holding_processes
                         .clone()
                         .into_iter()
-                        .filter(|(_, holding)| process_ids_to_update.contains(&holding.process_id))
+                        .filter(|(_, holding)| !process_ids_to_update.contains(&holding.process_id))
                         .collect();
                     self.holding_processes = new_holding;
 
@@ -942,7 +999,6 @@ impl Machine {
                     
                     let mut new_process = Process::new(
                         process_pc as usize,
-                        &self.instructions,
                     );
                     
                     while let Some(argument) = arguments.pop() {
@@ -968,7 +1024,7 @@ impl Machine {
                     let arity = active_process.stack.pop()
                         .ok_or(format!("Failed to pop arity from stack for send"))?;
                     
-                    let mut args = vec![];
+                    let mut args = vec![arity];
                     for _ in 0..arity {
                         args.push(
                             active_process.stack.pop()
@@ -983,39 +1039,35 @@ impl Machine {
                     receiver_process.incoming_messages
                         .push_back(args);
 
-
                     if let Some(sent_process) = self.holding_processes.get(&(send_id as u32)) {
-                        match sent_process.reason {
+                        match &sent_process.reason {
                             HoldReason::Expect => {
                                 self.holding_processes.remove(&(send_id as u32));
                                 self.pending_processes.push_back(send_id as u32);
                             },
-                            _ => (),
+                            _ => ()
                         }
                     }
                     
                     1
                 },
                 Instruction::Expect => {
-                    if let Some(mut message) = active_process.incoming_messages.pop_front() {
-                        let length = message.len();
-                        while let Some(value) = message.pop() {
+                    if let Some(next_message) = active_process.incoming_messages.pop_front() {
+                        for value in next_message.into_iter().rev() {
                             active_process.stack.push(value);
                         }
-
-                        active_process.stack.push(length as u64);
 
                         1
                     } else {
                         self.holding_processes.insert(
-                            active_process_id,
+                            active_process_id, 
                             HoldingProcess { 
                                 process_id: active_process_id, 
-                                reason: HoldReason::Expect
-                            }
+                                reason: HoldReason::Expect 
+                            },
                         );
                         self.active_process_id = None;
-                        
+
                         0
                     }
                 },
@@ -1052,7 +1104,7 @@ impl Machine {
                 active_process.program_counter += pc_offset;
             }
 
-            if self.instructions_since_switch >= 10000 {
+            if self.instructions_since_switch > 10000 {
                 self.pending_processes.push_back(active_process_id);
                 self.active_process_id = None;
             }
@@ -1116,9 +1168,18 @@ impl Machine {
         Ok(None)
     }
 
-    pub fn run(&mut self) -> MachineResult<u64> {
+    pub fn run(mut self) -> MachineResult<u64> {
+        // use std::io::Write;
         loop {
             if let Some(final_result) = self.step()? {
+                let mut execution_pairs = self.execution_count
+                    .into_iter()
+                    .collect::<Vec<(usize, u64)>>();
+                execution_pairs.sort_by(|(lhs, _), (rhs, _)| lhs.cmp(rhs));
+
+                // writeln!(
+                //     std::io::stderr(), "Line Execution Counts:\n{:?}", execution_pairs
+                // ).unwrap();
                 return Ok(final_result)
             }
         };

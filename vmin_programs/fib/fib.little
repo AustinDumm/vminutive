@@ -1,0 +1,61 @@
+(
+    ; Setup
+    (DEF-CONST N 20)
+    push (CONST64 N)
+
+    ; fibonacci(stack_top)
+    (DEF-LABEL fibonacci)
+    push-addr (LABEL32 fib_help)
+    call
+    die
+
+    (DEF-LABEL fib_help)
+    ; fib_help(N)
+    ; stack on call:
+    ; top -> N
+    ; addr-stack on call:
+    ; top -> return_ptr
+    duplicate
+    push-addr (LABEL32 not_zero)
+    jump-nez-i
+
+    ; N is zero
+    pop
+    push (LIT64 0)
+    jump ; RETURN 0
+
+    (DEF-LABEL not_zero)
+    duplicate
+    push (LIT64 1)
+    swap
+    subtract-i
+    push-addr (LABEL32 not_one)
+    jump-nez-i
+    
+    ; N is one
+    pop
+    push (LIT64 1)
+    jump ; RETURN 1
+
+    (DEF-LABEL not_one)
+    push (LIT64 1)
+    swap
+    subtract-i
+    duplicate
+    push (LIT64 1)
+    swap
+    subtract-i
+    ; top -> N-2 -> N-1 -> ...
+    push-addr (LABEL32 fib_help)
+    call
+
+    ; top -> fib(N-2) -> N-1 -> ...
+    swap
+    push-addr (LABEL32 fib_help)
+    call
+
+    ; top -> fib(N-1) -> fib(N-2) -> ...
+    add-i
+    ; top -> fib(N-1) + fib(N-2) -> ...
+    jump ; RETURN
+)

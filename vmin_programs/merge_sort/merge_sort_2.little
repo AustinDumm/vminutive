@@ -1,0 +1,609 @@
+(
+    (DEF-CONST layer_root 0)                    ;
+    (DEF-CONST parity 8)                        ;
+    (DEF-CONST this_index 16)                   ;
+    (DEF-CONST pids 24)                         ;
+                                                ;
+    push-addr (LABEL32 heap)                    ; Setup
+    push-addr (LABEL32 print_process/0)         ; print_pid = spawn print_process/0
+    push (LIT64 0)                              ;
+    spawn                                       ;
+                                                ;
+    duplicate-addr                              ; pids[0] = print_pid
+    store8 (CONST8 pids)                        ;
+                                                ;
+    push (LIT64 1)                              ; let layer_root = 1
+    duplicate-addr                              ;
+    store8 (CONST8 layer_root)                  ;
+                                                ;
+    push (LIT64 0)                              ; let parity = 0
+    duplicate-addr                              ;
+    store8 (CONST8 parity)                      ;
+                                                ;
+    (DEF-LABEL spawn_loop)                      ; loop=spawn_loop
+    push (LIT64 0)                              ;  for layer_index in 0..<min(layer_root, input_length >> 1)
+    (DEF-LABEL layer_for_loop)                  ;
+                                                ;
+    duplicate                                   ;   layer_index < min(layer_root, input_length >> 1)
+    duplicate-addr                              ;
+    load8 (CONST8 layer_root)                   ;
+    duplicate                                   ;
+    push-addr (LABEL32 input)                   ;
+    load8 (LIT8 0)                              ;
+    push (LIT64 1)                              ;
+    swap                                        ;
+    shift-right                                 ;
+    subtract-i                                  ;   stack -> (input_length >> 1) - layer_root -> layer_root ->
+    push-addr (LABEL32 merge_input_larger)      ;
+    jump-gez-i                                  ;
+    pop                                         ;
+    push-addr (LABEL32 input)                   ;
+    load8 (LIT8 0)                              ;
+    push (LIT64 1)                              ;
+    swap                                        ;
+    shift-right                                 ;
+                                                ;
+    (DEF-LABEL merge_input_larger)              ;   stack -> min(layer_root, input_length >> 1) -> layer_index -> layer_index
+    subtract-i                                  ;   stack -> min(layer_root, input_length >> 1) - layer_index -> layer_index
+    push-addr (LABEL32 layer_for_done)          ;
+    jump-lez-i                                  ;   layer_index >= min(layer_root << 1, input_length), exit for loop
+                                                ;
+                                                ;   stack -> layer_index
+    duplicate                                   ;   stack -> layer_index -> layer_index
+    duplicate-addr                              ;   let this_index = layer_root + layer_index
+    load8 (CONST8 layer_root)                   ;
+    add-i                                       ;   stack -> layer_root + layer_index -> layer_index
+    duplicate-addr                              ;
+    store8 (CONST8 this_index)                  ;
+                                                ;
+    duplicate-addr                              ;
+    load8 (CONST8 parity)                       ;   stack -> parity
+                                                ;
+    duplicate-addr                              ;   let living_count =
+    load8 (CONST8 this_index)                   ;           if (this_index << 1) - 1 == input_length { 1 } else { 2 }
+    push (LIT64 1)                              ;
+    swap                                        ;
+    shift-left                                  ;
+    push (LIT64 1)                              ;
+    swap                                        ;
+    subtract-i                                  ;
+    push-addr (LABEL32 input)                   ;
+    load8 (LIT8 0)                              ;
+    subtract-i                                  ;   stack -> (this_index << 1) - 1 - input_length -> parity
+                                                ;
+    push-addr (LABEL32 merge_one_living_case)   ;
+    jump-eqz-i                                  ;
+                                                ;
+    push (LIT64 2)                              ;
+    push-addr (LABEL32 merge_living_exit)       ;
+    jump                                        ;
+                                                ;
+    (DEF-LABEL merge_one_living_case)           ;
+    push (LIT64 1)                              ;
+                                                ;
+    (DEF-LABEL merge_living_exit)               ;   stack -> living_count -> parity -> layer_index
+                                                ;
+    duplicate-addr                              ;
+    load8 (CONST8 this_index)                   ;
+    push (LIT64 1)                              ;
+    swap                                        ;
+    shift-right                                 ;
+    push (LIT64 8)                              ;
+    multiply-i                                  ;   stack -> parent_index*8 -> living_count -> parity
+    push (LABEL64 heap)                         ;
+    add-i                                       ;
+    pop-to-addr                                 ;
+    load8 (CONST8 pids)                         ;   stack -> pids[parent_index*8] -> living_count -> parity
+                                                ;
+                                                ;
+    push (LIT64 3)                              ;
+    push-addr (LABEL32 merge/3)                 ;   merge_pid = spawn merge/3 ->
+    spawn                                       ;       send_to_pid=pids[parent_index*8], living_count, self_parity=parity
+                                                ;
+    push (LABEL64 heap)                         ;   pids[this_index*8] = merge_pid
+    duplicate-addr                              ;
+    load8 (CONST8 this_index)                   ;
+    push (LIT64 8)                              ;
+    multiply-i                                  ;
+    add-i                                       ;
+    pop-to-addr                                 ;
+    store8 (CONST8 pids)                        ;
+                                                ;
+    push (LIT64 1)                              ;   layer_index += 1
+    add-i                                       ;
+                                                ;
+    push (LABEL64 heap)                         ;   flip_parity *parity
+    push (CONST64 parity)                       ;
+    add-i                                       ;
+    push-addr (LABEL32 flip_parity)             ;
+    call                                        ;
+                                                ;
+    push-addr (LABEL32 layer_for_loop)          ;
+    jump                                        ;   loop to layer spawning
+                                                ;
+                                                ;
+    (DEF-LABEL layer_for_done)                  ;
+    pop                                         ;
+    duplicate-addr                              ;  layer_root = layer_root << 1
+    load8 (CONST8 layer_root)                   ;
+    push (LIT64 1)                              ;
+    swap                                        ;
+    shift-left                                  ;
+    duplicate                                   ;
+    duplicate-addr                              ;
+    store8 (CONST8 layer_root)                  ;
+                                                ;
+                                                ;
+    push-addr (LABEL32 input)                   ;  if layer_root > input_length
+    load8 (LIT8 0)                              ;
+    subtract-i                                  ;
+    push-addr (LABEL32 spawn_loop)              ;  stack -> input_length - layer_root
+    jump-gtz-i                                  ;   continue loop if (input_length - layer_root) > 0
+                                                ;  
+    push (LIT64 0)                              ; for parrot_index in 0..<input_length
+    (DEF-LABEL parrot_for_loop)                 ;
+    duplicate                                   ;
+    push-addr (LABEL32 input)                   ;
+    load8 (LIT8 0)                              ;
+    subtract-i                                  ;  stack -> input_length - parrot_index -> parrot_index
+    push-addr (LABEL32 end_parrot_loop)         ;
+    jump-eqz-i                                  ;
+                                                ;
+    duplicate                                   ;  let parrot_value = input[parrot_index + 1]
+    duplicate                                   ;
+    push (LIT64 1)                              ;
+    add-i                                       ;
+    push (LIT64 8)                              ;
+    multiply-i                                  ;
+    push (LABEL64 input)                        ;
+    add-i                                       ;
+    pop-to-addr                                 ;
+    load8 (LIT8 0)                              ;
+    swap                                        ;  stack -> parrot_index -> parrot_value -> parrot_index
+                                                ;
+    duplicate-addr                              ;
+    load8 (CONST8 parity)                       ;
+    swap                                        ;  stack -> parrot_index -> parity, parrot_value -> parrot_index
+                                                ;
+    duplicate-addr                              ;  let pid_index = parrot_index + layer_root
+    load8 (CONST8 layer_root)                   ;
+    add-i                                       ;  stack -> parrot_index + layer_root = pid_index -> ...
+    push (LIT64 1)                              ;  let parent_index = (pid_index >> 1) - 1
+    swap                                        ;
+    shift-right                                 ;
+    push (LIT64 1)                              ;
+    swap                                        ;
+    subtract-i                                  ;  stack -> parent_index -> parity, parrot_value -> parrot_index
+                                                ;
+    push (LIT64 1)                              ;
+    add-i                                       ;
+    push (LIT64 8)                              ;
+    multiply-i                                  ;
+    push (LABEL64 heap)                         ;  let send_pid = pids[parent_index*8]
+    add-i                                       ;
+    pop-to-addr                                 ;
+    load8 (CONST8 pids)                         ;  stack -> send_pid, parity, parrot_value)
+                                                ;
+    push (LIT64 3)                              ;
+    push-addr (LABEL32 parrot/3)                ;  _ = spawn parrot/3
+    spawn                                       ;          -> send_to_pid=send_pid, send_parity=parity, value=parrot_value
+                                                ;          -> parrot_index
+    pop                                         ;  drop parrot/3 pid
+                                                ;
+    push (LABEL64 heap)                         ;  flip_parity *parity
+    push (CONST64 parity)                       ;
+    add-i                                       ;
+    push-addr (LABEL32 flip_parity)             ;  stack -> *parity -> parrot_index
+    call                                        ;
+                                                ;
+    push (LIT64 1)                              ;
+    add-i                                       ;  stack -> parrot_index + 1
+    push-addr (LABEL32 parrot_for_loop)         ;
+    jump                                        ;
+                                                ;
+    (DEF-LABEL end_parrot_loop)                 ;
+    die                                         ; setup die
+                                                ;
+                                                ;
+    (DEF-LABEL merge/3)                         ; merge/3
+    (DEF-CONST merge_living_count 0)            ; Stack -> send_to_pid -> living_count -> self_parity
+    (DEF-CONST merge_self_parity 8)             ;
+    (DEF-CONST merge_send_to 16)                ;
+    (DEF-CONST merge_backlog_parity 24)         ;
+    (DEF-CONST merge_backlog_ptr 32)            ;
+    (DEF-CONST merge_backlog_end 40)            ;
+    (DEF-CONST merge_backlog 48)                ;
+                                                ;
+    push-addr (LABEL32 heap)                    ; init: 
+    duplicate-addr                              ;   2-send_to := send_to_pid
+    store8 (CONST8 merge_send_to)               ;
+                                                ;
+    duplicate-addr                              ;   0-living_count := living_count
+    store8 (CONST8 merge_living_count)          ;
+                                                ;
+    duplicate-addr                              ;   1-self_parity := self_parity
+    store8 (CONST8 merge_self_parity)           ;
+                                                ;
+    push (LIT64 0)                              ;   3-backlog_parity := 0
+    duplicate-addr                              ;
+    store8 (CONST8 merge_backlog_parity)        ;
+                                                ;
+    push (LIT64 0)                              ;   4-backlog_ptr := 0
+    duplicate-addr                              ;
+    store8 (CONST8 merge_backlog_ptr)           ;
+                                                ;
+    push (LIT64 0)                              ;   5-backlog_end := 0
+    duplicate-addr                              ;
+    store8 (CONST8 merge_backlog_end)           ;
+                                                ;
+    (DEF-LABEL message)                         ; On message -> (parity, value)
+    expect                                      ;
+                                                ;
+    (DEF-LABEL merge_process_message)           ;
+    push (LIT64 2)                              ;
+    subtract-i                                  ;
+    push-addr (LABEL32 message_2_expected_arity);
+    jump-eqz-i                                  ;
+    die                                         ; Die on unexpected message arity
+                                                ;
+    (DEF-LABEL message_2_expected_arity)        ;
+    duplicate-addr                              ; if backlog_end = 0
+    load8 (CONST8 merge_backlog_end)            ; 
+    push-addr (LABEL32 backlog_not_empty)       ; 
+    jump-gtz-i                                  ;
+                                                ;
+    duplicate-addr                              ;   backlog_parity := parity
+    store8 (CONST8 merge_backlog_parity)        ;
+                                                ;
+    duplicate-addr                              ;   backlog[backlog_end] := value
+    load8 (CONST8 merge_backlog_end)            ;
+    push (LIT64 8)                              ;
+    multiply-i                                  ;
+    push (LABEL64 heap)                         ;
+    add-i                                       ;
+    pop-to-addr                                 ;
+    store8 (CONST8 merge_backlog)               ;
+                                                ;
+    duplicate-addr                              ;   backlog_end := backlog_end + 1
+    load8 (CONST8 merge_backlog_end)            ;
+    push (LIT64 1)                              ;
+    add-i                                       ;
+    duplicate-addr                              ;
+    store8 (CONST8 merge_backlog_end)           ;
+                                                ;
+    push-addr (LABEL32 message)                 ;   jump message
+    jump                                        ;
+                                                ;
+    (DEF-LABEL backlog_not_empty)               ; else (backlog_end != 0)
+    push-addr (LABEL32 not_death_message)       ;   if parity < 0, is a death message
+    duplicate                                   ;
+    jump-gez-i                                  ;
+                                                ;
+    duplicate-addr                              ;     living_count := living_count - 1
+    load8 (CONST8 merge_living_count)           ;
+    push (LIT64 1)                              ;
+    swap                                        ;
+    subtract-i                                  ;
+    duplicate-addr                              ;
+    duplicate                                   ;
+    store8 (CONST8 merge_living_count)          ;
+                                                ;
+    push-addr (LABEL32 not_last_death)          ;     if living_count = 0
+    jump-nez-i                                  ;
+                                                ;
+    (DEF-LABEL flush_backlog)                   ;       Nothing left living, flush backlog
+    duplicate-addr                              ;       if backlog_ptr != backlog_end
+    load8 (CONST8 merge_backlog_ptr)            ;
+    duplicate-addr                              ;
+    load8 (CONST8 merge_backlog_end)            ;
+    subtract-i                                  ;
+    push-addr (LABEL32 done-flushing)           ;
+    jump-eqz-i                                  ;
+                                                ;
+    duplicate-addr                              ;         Setup stack for sending
+    load8 (CONST8 merge_backlog_ptr)            ;
+    push (LIT64 8)                              ;
+    multiply-i                                  ;
+    push (LABEL64 heap)                         ;
+    add-i                                       ;
+    pop-to-addr                                 ;
+    load8 (CONST8 merge_backlog)                ;         stack -> backlog[backlog_ptr] 
+                                                ;
+    duplicate-addr                              ;
+    load8 (CONST8 merge_self_parity)            ;         stack -> self_parity -> backlog[backlog_ptr]
+                                                ;
+    push (LIT64 2)                              ;         stack -> 2 -> self_parity -> backlog[backlog_ptr]
+                                                ;
+    duplicate-addr                              ;
+    load8 (CONST8 merge_send_to)                ;         stack -> send_to -> 2, self_parity, backlog[backlog_ptr]
+    send                                        ;         send
+                                                ;
+    duplicate-addr                              ;         backlog_ptr := backlog_ptr + 1
+    load8 (CONST8 merge_backlog_ptr)            ;
+    push (LIT64 1)                              ;
+    add-i                                       ;
+    duplicate-addr                              ;
+    store8 (CONST8 merge_backlog_ptr)           ;
+                                                ;
+    push-addr (LABEL32 flush_backlog)           ;         jump flush_backlog
+    jump                                        ;
+                                                ;
+                                                ;
+    (DEF-LABEL done-flushing)                   ;       stack -> -1 -> -1 from recv death message
+    push (LIT64 2)                              ;       stack -> 2 -> -1 -> -1
+                                                ;
+    duplicate-addr                              ;
+    load8 (CONST8 merge_send_to)                ;       stack -> send_to -> 2, -1, -1
+    send                                        ;       send
+    die                                         ;       die
+                                                ;
+                                                ;
+    (DEF-LABEL not_last_death)                  ;     else (living_count > 0)
+    pop                                         ;
+    pop                                         ;
+    push-addr (LABEL32 message)                 ;       jump message
+    jump                                        ;
+                                                ;
+                                                ;
+    (DEF-LABEL not_death_message)               ;
+    duplicate                                   ;
+    duplicate-addr                              ;  if parity = backlog_parity
+    load8 (CONST8 merge_backlog_parity)         ;
+    subtract-i                                  ;
+    push-addr (LABEL32 not_backlog_parity)      ;
+    jump-nez-i                                  ;
+                                                ;
+    pop                                         ;     stack -> value
+    duplicate-addr                              ;     backlog[backlog_end] := value
+    load8 (CONST8 merge_backlog_end)            ;
+    push (LIT64 8)                              ;
+    multiply-i                                  ;
+    push (LABEL64 heap)                         ;
+    add-i                                       ;
+    pop-to-addr                                 ;
+    store8 (CONST8 merge_backlog)               ;
+                                                ;
+    duplicate-addr                              ;     backlog_end := backlog_end + 1
+    load8 (CONST8 merge_backlog_end)            ;
+    push (LIT64 1)                              ;
+    add-i                                       ;
+    duplicate-addr                              ;
+    store8 (CONST8 merge_backlog_end)           ;
+    push-addr (LABEL32 message)                 ;
+    jump                                        ;     RETURN to MESSAGE
+                                                ;
+    (DEF-LABEL not_backlog_parity)              ;   else (parity != backlog_parity)
+    (DEF-LABEL send_merged)                     ;     DEF-LABEL send_merged
+    duplicate-addr                              ;     if backlog_ptr = backlog_end
+    load8 (CONST8 merge_backlog_ptr)            ;
+    duplicate-addr                              ;
+    load8 (CONST8 merge_backlog_end)            ;
+    subtract-i                                  ;
+    push-addr (LABEL32 backlog_ptr_not_end)     ;
+    jump-nez-i                                  ;
+                                                ;
+    duplicate-addr                              ;       backlog_ptr := 0
+    push (LIT64 0)                              ;
+    store8 (CONST8 merge_backlog_ptr)           ;
+    duplicate-addr                              ;       backlog_end := 1
+    push (LIT64 1)                              ;
+    store8 (CONST8 merge_backlog_end)           ;
+                                                ;
+    duplicate-addr                              ;       backlog_parity := parity
+    store8 (CONST8 merge_backlog_parity)        ;
+    duplicate-addr                              ;       backlog[0] := value
+    store8 (CONST8 merge_backlog)               ;
+                                                ;
+    push-addr (LABEL32 message)                 ;       jump message
+    jump                                        ;
+                                                ;
+    (DEF-LABEL backlog_ptr_not_end)             ;
+    swap                                        ;     stack -> value -> parity
+    duplicate                                   ;     duplicate value
+    duplicate-addr                              ;     if backlog[backlog_ptr] < value
+    load8 (CONST8 merge_backlog_ptr)            ;
+    push (LIT64 8)                              ;
+    multiply-i                                  ;
+    push (LABEL64 heap)                         ;
+    add-i                                       ;
+    pop-to-addr                                 ;
+    load8 (CONST8 merge_backlog)                ;
+    subtract-i                                  ;     (backlog[backlog_ptr] - value)
+    push-addr (LABEL32 send_value)              ;
+    jump-gtz-i                                  ;
+                                                ;     Send backlog
+    duplicate-addr                              ;       stack -> send_to -> 2, self_parity, backlog[backlog_ptr] -> value
+    load8 (CONST8 merge_backlog_ptr)            ;
+    push (LIT64 8)                              ;
+    multiply-i                                  ;
+    push (LABEL64 heap)                         ;
+    add-i                                       ;
+    pop-to-addr                                 ;
+    load8 (CONST8 merge_backlog)                ;       stack -> backlog[backlog_ptr] -> value, parity
+                                                ;
+    duplicate-addr                              ;
+    load8 (CONST8 merge_self_parity)            ;       stack -> self_parity -> backlog[backlog_ptr] -> value, parity
+                                                ;
+    push (LIT64 2)                              ;       stack -> 2 -> self_parity -> ...
+                                                ;
+    duplicate-addr                              ;
+    load8 (CONST8 merge_send_to)                ;       stack -> send_to -> 2, self_parity, backlog[backlog_ptr] -> value
+                                                ;
+    send                                        ;       send
+                                                ;
+    duplicate-addr                              ;       backlog_ptr := backlog_ptr + 1
+    load8 (CONST8 merge_backlog_ptr)            ;
+    push (LIT64 1)                              ;
+    add-i                                       ;
+    duplicate-addr                              ;
+    store8 (CONST8 merge_backlog_ptr)           ;
+                                                ;
+    swap                                        ;       set stack -> parity, value
+    push-addr (LABEL32 send_merged)             ;
+    jump                                        ;       jump send_merged
+                                                ;
+    (DEF-LABEL send_value)                      ;     else
+                                                ;       stack -> send_to -> 2, self_parity, value
+    duplicate                                   ;       stack -> value -> value -> parity
+                                                ;
+    duplicate-addr                              ;
+    load8 (CONST8 merge_self_parity)            ;       stack -> self_parity, value -> value -> parity
+                                                ;
+    push (LIT64 2)                              ;       stack -> 2, self_parity, value -> value -> parity
+                                                ;
+    duplicate-addr                              ;
+    load8 (CONST8 merge_send_to)                ;       stack -> send_to -> 2, self_parity, value -> value -> parity
+                                                ;
+    send                                        ;       send
+                                                ;
+    pop                                         ;
+    pop                                         ;       stack ->
+                                                ;
+    push-addr (LABEL32 message)                 ;       jump message
+    jump                                        ;  END MERGE/3
+                                                ;
+                                                ;
+    (DEF-LABEL parrot/3)                        ; parrot/3
+                                                ; Stack -> pid -> first -> second
+    push-addr (LABEL32 heap)                    ;
+    duplicate-addr                              ;
+    duplicate                                   ;
+    store8 (LIT8 0)                             ;
+    push (LIT64 2)                              ;
+    swap                                        ;
+    send                                        ; Send (first, second) -> PId
+                                                ;
+    push #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF;
+    push #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF;
+    push (LIT64 2)                              ;
+    load8 (LIT8 0)                              ; Stack -> pid -> arity=2, -1, -1
+    send                                        ;
+                                                ;
+    die                                         ;
+                                                ;
+                                                ;
+    (DEF-LABEL flip_parity)                     ; LABEL flip_parity
+                                                ; stack -> *parity -> ..., addr_stack -> return -> ...
+    pop-to-addr                                 ; stack -> ..., addr_stack -> *parity -> return -> ...
+    duplicate-addr                              ;
+    load8 (LIT8 0)                              ; stack -> parity -> ..., addr_stack -> *parity -> return -> ...
+    push-addr (LABEL32 parity-is-not-zero)      ;
+    jump-nez-i                                  ; if parity = 0
+                                                ;
+    push (LIT64 1)                              ;  stack -> 1 -> ..., addr_stack -> *parity -> return -> ...
+    store8 (LIT8 0)                             ;  stack -> ..., addr_stack -> return -> ...
+    jump                                        ;  return
+                                                ;
+    (DEF-LABEL parity-is-not-zero)              ; else
+    push (LIT64 0)                              ;  stack -> 0 -> ..., addr_stack -> *parity -> return -> ...
+    store8 (LIT8 0)                             ;
+    jump                                        ; return
+                                                ;
+                                                ;
+    (DEF-LABEL print_process/0)                 ; print_process/0
+    (DEF-CONST print_port 2)                    ;
+    (DEF-CONST ascii_space 32)                  ;
+                                                ;
+    push (CONST64 print_port)                   ;
+    port-register                               ;
+    push-addr (LABEL32 port_register_success)   ;
+    jump-nez-i                                  ;
+    die                                         ; FAILED TO REGISTER
+                                                ;
+    (DEF-LABEL port_register_success)           ;
+    (DEF-LABEL print_loop)                      ; label loop
+    push (LIT64 0)                              ; stack -> expect_arity=0
+    expect                                      ; expect -> parity, value
+    push (LIT64 2)                              ;
+    subtract-i                                  ;
+    push-addr (LABEL32 print_correct_arity)     ;
+    jump-eqz-i                                  ;
+    die                                         ;
+                                                ;
+    (DEF-LABEL print_correct_arity)             ;
+    push-addr (LABEL32 print_not_dead)          ; if parity = -1
+    jump-gez-i                                  ;
+    push (LIT64 0)                              ;
+    die                                         ;  die
+                                                ;
+    (DEF-LABEL print_not_dead)                  ; else, not death parity
+    push-addr (LABEL32 convert_to_digit_codes)  ; call convert_to_digit_codes
+    call                                        ;
+                                                ;
+                                                ; stack -> arity -> N*codes
+    (DEF-LABEL print_flush_loop)                ; while arity > 0
+    duplicate                                   ; while arity > 0
+    push-addr (LABEL32 print_keep_flushing)     ;
+    jump-gtz-i                                  ;
+                                                ;
+    pop                                         ;
+    push (CONST64 ascii_space)                  ;
+    push (LIT64 1)                              ;
+    port-send                                   ;
+    push-addr (LABEL32 print_loop)              ;
+    jump                                        ;
+                                                ;
+    (DEF-LABEL print_keep_flushing)             ;
+    swap                                        ; stack -> code -> code_count -> (N-count)*codes
+    push (LIT64 1)                              ; stack -> arity=1 -> code
+    port-send                                   ;  port-send
+                                                ;
+    push (LIT64 1)                              ;  arity = arity - 1
+    swap                                        ;
+    subtract-i                                  ;
+    push-addr (LABEL32 print_flush_loop)        ;
+    jump                                        ;
+                                                ;
+                                                ;
+    (DEF-LABEL convert_to_digit_codes)          ; label convert_to_digit_codes
+    (DEF-CONST convert_chars_to_print 0)        ; stack -> raw_number
+    (DEF-CONST ascii_0_code 48)                 ; addr-stack -> return
+                                                ;
+    push-addr (LABEL32 heap)                    ; heap[0]=chars_to_print = 0
+    duplicate-addr                              ;
+    push (LIT64 0)                              ;
+    store8 (CONST8 convert_chars_to_print)      ;
+                                                ;
+    (DEF-LABEL build_buffer)                    ; stack -> number_to_print
+    duplicate                                   ;
+    push (LIT64 10)                             ;
+    swap                                        ;
+    modulus                                     ; stack -> number_to_print % 10 -> number_to_print
+    push (CONST64 ascii_0_code)                 ;
+    add-i                                       ;
+                                                ;
+    duplicate-addr                              ; heap[0] += 1
+    load8 (LIT8 0)                              ;
+    push (LIT64 1)                              ;
+    add-i                                       ;
+    duplicate-addr                              ;
+    store8 (LIT8 0)                             ;
+                                                ; stack -> number_to_print % 10 + 0_code -> number_to_print
+    swap                                        ; stack -> number_to_print -> number_to_print % 10 + 0_code
+    push (LIT64 10)                             ; push
+    swap                                        ; stack -> number_to_print -> 10 -> ...
+    divide-i                                    ; stack -> number_to_print // 10 -> ...
+    duplicate                                   ; if top == 0
+    push-addr (LABEL32 convert_flush_buffer)    ;
+    jump-eqz-i                                  ;
+                                                ;
+    push-addr (LABEL32 build_buffer)            ; else, more numbers to buffer
+    jump                                        ; 
+                                                ;
+    (DEF-LABEL convert_flush_buffer)            ; label flush_buffer
+    pop                                         ; push heap[0]=count
+    load8 (LIT8 0)                              ; stack -> heap[0]=count -> digit -> ... -> unit_digit
+    jump                                        ; return
+                                                ;
+                                                ;
+    (DEF-LABEL input)                           ;
+    (DEF-LABEL input)
+    (SCRIPT ((lambda (n) 
+                (cons (generate-literal n 8)
+                      (map (lambda (v) (generate-literal v 8))
+                           (map (lambda (v) (+ v 1)) (shuffle (range n))))))
+        (expt 2 14)
+    ))
+    
+    (DEF-LABEL heap)
+)

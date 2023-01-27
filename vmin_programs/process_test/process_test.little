@@ -1,0 +1,61 @@
+(
+    (DEF-CONST output_port 2)
+    (DEF-CONST init_counter 16)
+
+    ; setup
+    push-addr (LABEL32 recv_start)
+    push (LIT64 0) ; Arity of receiver start stack = 0
+    spawn
+
+    (DEF-LABEL counter)
+    ; counter process setup
+    push-addr (LABEL32 pid_store)
+    duplicate-addr
+    store8 0
+    push (CONST64 init_counter)
+
+    (DEF-LABEL loop)
+    duplicate
+    push (LIT64 1) ; arity of send = 1
+    duplicate-addr
+    load8 0
+    send
+    push (LIT64 1) ; decr = 1
+    swap
+    subtract-i
+    push-addr (LABEL32 loop)
+    duplicate
+    jump-gez-i
+    die
+
+    (DEF-LABEL recv_start)
+    push (CONST64 output_port)
+    port-register
+    push-addr (LABEL32 registered)
+    jump-nez-i
+    die
+
+    (DEF-LABEL registered)
+    ; setup
+    push (LIT64 1)
+    push-addr (LABEL32 recv_loop)
+
+    (DEF-LABEL recv_loop)
+    expect
+    pop ; arity will always be 1, ignore arity
+    duplicate
+    push-addr (LABEL32 continue)
+    jump-nez-i
+    pop
+    die
+
+    (DEF-LABEL continue)
+    multiply-i
+    duplicate
+    push (LIT64 1) ; Arity for port send = 1
+    port-send
+    duplicate-addr
+    jump
+
+    (DEF-LABEL pid_store) 
+)

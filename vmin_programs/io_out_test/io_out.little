@@ -1,0 +1,28 @@
+(
+    ; setup
+    (DEF-CONST out_port 2)
+    push (CONST64 out_port)
+    port-register
+    pop
+    push
+    (LIT64 0)
+    push-addr (LABEL32 loop)
+
+    (DEF-LABEL loop)
+    duplicate
+    push (LIT64 1)
+    port-send
+    push (LIT64 1)
+    add-i
+    duplicate-addr
+
+    duplicate
+    push (LIT64 255)
+    subtract-i
+    push-addr (LABEL32 continue)
+    jump-gez-i
+    die
+
+    (DEF-LABEL continue)
+    jump
+)

@@ -1,0 +1,55 @@
+(
+    ; Setup
+    push-addr (LABEL32 arg1)
+    load8 0
+    push-addr (LABEL32 arg2)
+    load8 0
+
+    ; sort top > 2nd
+    push-addr (LABEL32 arg1)
+    duplicate-addr
+    store8 0
+    duplicate
+    duplicate-addr
+    load8 0
+    subtract-i
+    push-addr (LABEL32 swap)
+    jump-ltz-i
+
+    ; No need to swap, reload values
+    load8 0
+    push-addr (LABEL32 gcd)
+    jump
+
+    ; Need to swap
+    (DEF-LABEL swap)
+    load8 0
+    swap
+    push-addr (LABEL32 gcd)
+    jump
+
+    ; GCD proc
+    (DEF-LABEL gcd)
+    push-addr (LABEL32 arg1)
+    duplicate-addr
+    store8 0
+    duplicate
+    load8 0
+    modulus
+    duplicate
+    push-addr (LABEL32 gcd_done)
+    jump-eqz-i
+
+    swap
+    push-addr (LABEL32 gcd)
+    jump
+
+    (DEF-LABEL gcd_done)
+    pop
+    die
+
+    (DEF-LABEL arg1)
+    (LIT64 56)
+    (DEF-LABEL arg2)
+    (LIT64 882)
+)

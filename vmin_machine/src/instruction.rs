@@ -6,6 +6,10 @@ use enum_repr::EnumRepr;
 pub enum Instruction {
     /// Push the next 8 bytes as a 64 bit value onto the stack
     Push,
+    /// Push the number of elements in the stack onto the stack
+    PushStackCount,
+    /// Push the number of elements in the addr-stack onto the stack
+    PushAddrCount,
     /// Push the next 4 bytes as a 32 bit value onto the addr-stack
     PushAddr,
     /// Pop and discard the top stack value
@@ -185,7 +189,12 @@ pub enum Instruction {
     Send,
 
     /// Expect
-    /// Holds this process until a message is sent to this process. Upon waking, the message is
+    /// Pops the top value off of the stack as arity=N
+    /// Pops the next N values off of the stack as expected N values starting the message
+    /// to wake this process with.
+    /// 
+    /// Holds this process until a message is sent to this process whose first N values
+    /// match the N popped off of the stack when expecting. Upon waking, the message is
     /// copied into this process's stack the same as it existed on the stack of the sending
     /// process, arity of the message is pushed on top, and continues execution.
     Expect,
