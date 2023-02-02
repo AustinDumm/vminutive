@@ -8,7 +8,11 @@
 
 (define (place-instr-end
          instruction-list)
-  (append instruction-list '((DEF-LABEL instr-end))))
+  (append instruction-list '((DEF-LABEL instr_end))))
+
+(define (place-const-mem-limit
+         instruction-list)
+  (append instruction-list `((DEF-CONST mem_limit ,(expt 2 32)))))
 
 (define (fetch-include instruction)
   (define file-name (list-ref instruction 1))
@@ -65,6 +69,7 @@
    process-label-commands
    place-instr-end
    process-const-commands
+   place-const-mem-limit
    process-lit-commands
    process-scripts
    process-include))
