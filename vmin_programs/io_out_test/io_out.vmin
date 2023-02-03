@@ -18,6 +18,7 @@
 
     duplicate
     push (LIT64 255)
+    swap
     subtract-i
     push-addr (LABEL32 continue)
     jump-gez-i

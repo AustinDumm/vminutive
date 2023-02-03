@@ -462,82 +462,82 @@ impl Machine {
                     1
                 },
                 Instruction::AddI => {
-                    active_process.perform_integer_math(&|lhs, rhs| lhs + rhs)?;
+                    active_process.perform_integer_math(&|lhs, rhs| rhs + lhs)?;
 
                     1
                 },
                 Instruction::AddF => {
-                    active_process.perform_floating_math(&|lhs, rhs| lhs + rhs)?;
+                    active_process.perform_floating_math(&|lhs, rhs| rhs + lhs)?;
 
                     1
                 },
                 Instruction::SubtractI => {
-                    active_process.perform_integer_math(&|lhs, rhs| lhs - rhs)?;
+                    active_process.perform_integer_math(&|lhs, rhs| rhs - lhs)?;
 
                     1
                 },
                 Instruction::SubtractF => {
-                    active_process.perform_floating_math(&|lhs, rhs| lhs - rhs)?;
+                    active_process.perform_floating_math(&|lhs, rhs| rhs - lhs)?;
 
                     1
                 },
                 Instruction::MultiplyI => {
-                    active_process.perform_integer_math(&|lhs, rhs| lhs * rhs)?;
+                    active_process.perform_integer_math(&|lhs, rhs| rhs * lhs)?;
 
                     1
                 },
                 Instruction::MultiplyF => {
-                    active_process.perform_floating_math(&|lhs, rhs| lhs * rhs)?;
+                    active_process.perform_floating_math(&|lhs, rhs| rhs * lhs)?;
 
                     1
                 },
                 Instruction::DivideI => {
-                    active_process.perform_integer_math(&|lhs, rhs| lhs / rhs)?;
+                    active_process.perform_integer_math(&|lhs, rhs| rhs / lhs)?;
 
                     1
                 },
                 Instruction::DivideF => {
-                    active_process.perform_floating_math(&|lhs, rhs| lhs / rhs)?;
+                    active_process.perform_floating_math(&|lhs, rhs| rhs / lhs)?;
 
                     1
                 },
                 Instruction::Modulus => {
-                    active_process.perform_integer_math(&|lhs, rhs| lhs % rhs)?;
+                    active_process.perform_integer_math(&|lhs, rhs| rhs % lhs)?;
 
                     1
                 },
                 Instruction::ShiftRight => {
-                    active_process.perform_integer_math(&|lhs, rhs| lhs >> rhs)?;
+                    active_process.perform_integer_math(&|lhs, rhs| rhs >> lhs)?;
 
                     1
                 },
                 Instruction::ShiftLeft => {
-                    active_process.perform_integer_math(&|lhs, rhs| lhs << rhs)?;
+                    active_process.perform_integer_math(&|lhs, rhs| rhs << lhs)?;
 
                     1
                 },
                 Instruction::RotateRight => {
-                    active_process.perform_integer_math(&|lhs, rhs| lhs.rotate_right(rhs as u32))?;
+                    active_process.perform_integer_math(&|lhs, rhs| rhs.rotate_right(lhs as u32))?;
 
                     1
                 },
                 Instruction::RotateLeft => {
-                    active_process.perform_integer_math(&|lhs, rhs| lhs.rotate_left(rhs as u32))?;
+                    active_process.perform_integer_math(&|lhs, rhs| rhs.rotate_left(lhs as u32))?;
 
                     1
                 },
                 Instruction::BitwiseAnd => {
-                    active_process.perform_integer_math(&|lhs, rhs| lhs & rhs)?;
+                    active_process.perform_integer_math(&|lhs, rhs| rhs & lhs)?;
 
                     1
                 },
                 Instruction::BitwiseOr => {
-                    active_process.perform_integer_math(&|lhs, rhs| lhs | rhs)?;
+                    active_process.perform_integer_math(&|lhs, rhs| rhs | lhs)?;
 
                     1
                 },
                 Instruction::BitwiseXor => {
-                    active_process.perform_integer_math(&|lhs, rhs| lhs ^ rhs)?;
+                    active_process.perform_integer_math(&|lhs, rhs| rhs ^ lhs)?;
 
                     1
                 },

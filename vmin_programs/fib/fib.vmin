@@ -27,7 +27,6 @@
     (DEF-LABEL not_zero)
     duplicate
     push (LIT64 1)
-    swap
     subtract-i
     push-addr (LABEL32 not_one)
     jump-nez-i
@@ -39,11 +38,9 @@
 
     (DEF-LABEL not_one)
     push (LIT64 1)
-    swap
     subtract-i
     duplicate
     push (LIT64 1)
-    swap
     subtract-i
     ; top -> N-2 -> N-1 -> ...
     push-addr (LABEL32 fib_help)

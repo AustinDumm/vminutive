@@ -38,7 +38,7 @@ pub enum Instruction {
 
     /// Math and Logical Instructions
     /// Pop the top two values off of the stack and push the result of the operation
-    /// onto the stack.
+    /// onto the stack. Result is calculated to be in line with Reverse Polish Notation.
     ///
     /// Overflow or underflow in operation results in overflow bit set for checking
     /// with corresponding jump instructions.
@@ -47,7 +47,7 @@ pub enum Instruction {
     /// 
     /// Ex. If stack top -> a -> b -> c,
     ///     on Subtract instruction,
-    ///     result: top -> a - b -> c
+    ///     result: top -> b - a -> c
     AddI,
     AddF,
     SubtractI,

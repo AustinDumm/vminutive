@@ -23,7 +23,6 @@
     load8 (CONST8 main_length)                  ;
     add-i                                       ;
     push (LIT64 8)                              ;
-    swap                                        ;
     subtract-i                                  ;
     duplicate-addr                              ;
     duplicate                                   ;
@@ -56,6 +55,7 @@
     duplicate                                   ;
     duplicate-addr                              ;
     load8 (CONST8 main_end)                     ;
+    swap                                        ;
     subtract-i                                  ; stack -> main_end - main_start -> main_start
     push-addr (LABEL32 main_end)                ;
     jump-ltz-i                                  ;
@@ -103,9 +103,9 @@
                                                 ;
                                                 ;
     duplicate-addr                              ;
-    load8 (CONST8 quicksort_start)              ;
-    duplicate-addr                              ;
     load8 (CONST8 quicksort_end)                ;
+    duplicate-addr                              ;
+    load8 (CONST8 quicksort_start)              ;
     subtract-i                                  ; stack -> end - start
     push-addr (LABEL32 dont_exit)               ;
     jump-gtz-i                                  ;
@@ -144,7 +144,6 @@
     duplicate-addr                              ;
     load8 (CONST8 quicksort_center)             ;
     push (LIT64 8)                              ;
-    swap                                        ;
     subtract-i                                  ;
     duplicate-addr                              ;
     load8 (CONST8 quicksort_start)              ;
@@ -174,7 +173,6 @@
     add-i                                       ;
     push-addr (LABEL32 quicksort/2)             ;
     call                                        ; quicksort/2 -> center + 8, end
-    ;pop-addr jump ; debug return
                                                 ;
     duplicate-addr                              ; replace heap
     store8 (CONST8 quicksort_start)             ;
@@ -209,26 +207,25 @@
     store8 (CONST8 partition_pivot)             ; let pivot = input[end]
                                                 ;
     push (LIT64 8)                              ;
-    swap                                        ;
     subtract-i                                  ;
     duplicate-addr                              ;
     store8 (CONST8 partition_end)               ; let end = end - 8
                                                 ;
     (DEF-LABEL partition_while_loop)            ; while start <= end
     duplicate-addr                              ;
-    load8 (CONST8 partition_start)              ;
-    duplicate-addr                              ;
     load8 (CONST8 partition_end)                ;
+    duplicate-addr                              ;
+    load8 (CONST8 partition_start)              ;
     subtract-i                                  ; stack -> end - start
     push-addr (LABEL32 partition_while_break)   ;
     jump-ltz-i                                  ;
                                                 ;
     duplicate-addr                              ;
+    load8 (CONST8 partition_pivot)              ;
+    duplicate-addr                              ;
     load8 (CONST8 partition_start)              ;
     pop-to-addr                                 ;
     load8 (LIT8 0)                              ; stack -> input[start]
-    duplicate-addr                              ;
-    load8 (CONST8 partition_pivot)              ;
     subtract-i                                  ; stack -> pivot - input[start]
                                                 ;
     push-addr (LABEL32 partition_else)          ;
@@ -271,7 +268,6 @@
     duplicate-addr                              ;  |end -= 1
     load8 (CONST8 partition_end)                ;  |
     push (LIT64 8)                              ;  |
-    swap                                        ;  |
     subtract-i                                  ;  |
     duplicate-addr                              ;  |
     store8 (CONST8 partition_end)               ;  |
@@ -385,7 +381,6 @@
     port-send                                   ;  port-send
                                                 ;
     push (LIT64 1)                              ;  arity = arity - 1
-    swap                                        ;
     subtract-i                                  ;
     push-addr (LABEL32 print_flush_loop)        ;
     jump                                        ;
@@ -403,7 +398,6 @@
     (DEF-LABEL build_buffer)                    ; stack -> number_to_print
     duplicate                                   ;
     push (LIT64 10)                             ;
-    swap                                        ;
     modulus                                     ; stack -> number_to_print % 10 -> number_to_print
     push (CONST64 ascii_0_code)                 ;
     add-i                                       ;
@@ -417,7 +411,6 @@
                                                 ; stack -> number_to_print % 10 + 0_code -> number_to_print
     swap                                        ; stack -> number_to_print -> number_to_print % 10 + 0_code
     push (LIT64 10)                             ; push
-    swap                                        ; stack -> number_to_print -> 10 -> ...
     divide-i                                    ; stack -> number_to_print // 10 -> ...
     duplicate                                   ; if top == 0
     push-addr (LABEL32 convert_flush_buffer)    ;
