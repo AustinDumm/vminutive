@@ -1,0 +1,38 @@
+(
+    (DEF-CONST mem_man_null 0)
+
+    (DEF-LABEL mem_man_heap_free_ptr)
+    (CONST64 mem_man_null)
+
+    (DEF-LABEL mem_man_is_initialized)
+    (LIT64 0)
+
+    (DEF-LABEL mem_man_init/0)                  ; mem_man_init
+    ; *mem_man_is_initialized = 1_64
+    ; *mem_man_heap_free_ptr = instr-end + (instr-end % 8)
+    ; heap_size = (mem_limit - mem_man_heap_free_ptr) >> 1
+    ; mem_man_init_block/4 -> *mem_man_heap_free_ptr, heap_size, mem_man_null, mem_man_null
+
+                                                ; mem_man_init_block static storage
+    (DEF-LABEL mem_man_init_block_static)
+    (DEF-CONST mem_man_init_block_block_addr 0)
+    (DEF-CONST mem_man_init_block_block_size 8)
+    (DEF-CONST mem_man_init_block_next_block 16)
+    (DEF-CONST mem_man_init_block_prev_block 24)
+    (DEF-CONST mem_man_block_header_size 16)
+                                                ;
+    (DEF-LABEL mem_man_init_block/)            ; stack -> block_addr -> block_size -> next_block -> prev_block
+    (DEF-CONST mem_map_init_block_mask 4294967290)
+    ; block_addr = block_addr & mem_map_init_block_mask
+    ; *mem_man_init_block_block_addr = block_addr
+    ; *mem_man_init_block_block_size = block_size
+    ; *mem_man_init_block_next_block = next_block
+    ; *mem_man_init_block_prev_block = prev_block
+    ;
+    ; *mem_man_init_block_block_addr[0..4] = mem_man_init_block_block_size[0..4]
+    ; (*mem_man_init_block_block_addr)[*mem_man_init_block_block_size - 4..*mem_man_init_block_block_size] 
+    ;       = mem_man_init_block_block_size[0..4]
+    ; 
+    ; (*mem_man_init_block_block_addr)[4..8] = mem_man_init_block_next_block[0..4]
+    ; (*mem_man_init_block_block_addr)[8..12] = mem_man_init_block_prev_block[0..4]
+)
