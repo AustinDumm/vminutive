@@ -1,0 +1,36 @@
+(
+    ; stack_manager
+    ; Memory management for stack-based function calls and local variables
+    ;
+    ; Opt-in handling of stack pointer and allocated blocks to be de-allocated
+    ;   on function return. Expects strict adherence to sta_man api for local
+    ;   space allocation and function returns to ensure stack coherence during
+    ;   flow of control changes.
+    ;
+                                                ;
+    (DEF-LABEL _sta_man_stack_pointer)          ; 
+    (LIT64 0)                                   ;
+
+    (DEF-LABEL _sta_man_is_initialized)         ; Returns to the call point leaving 0 on the top of the stack
+    push-addr (LABEL32 sta_man_stack_pointer)   ; if sta_man is not initialized. Otherwise leaves a non-zero
+    load8 (LIT8 0)                              ; value on top of the stack.
+    jump                                        ;
+
+    (DEF-LABEL _sta_man_initialize)             ; Sets the stack pointer to the memory limit to initialize
+    push-addr (LABEL32 sta_man_stack_pointer)   ; sta_man functions.
+    push (CONST64 mem_limit)                    ;
+    store8 (LIT8 0)                             ;
+
+    (DEF-LABEL _sta_man_cond_initialize)        ; Initializes stack man 
+    push-addr (LABEL32 _sta_man_cond_initialize);
+    call                                        ;
+                                                ;
+    push-addr (LABEL32 _sta_man_should_initialize)
+    jump-eqz-i                                  ;
+    jump                                        ; return
+                                                ;
+    (DEF-LABEL _sta_man_should_initialize)      ;
+    push-addr (LABEL32 _sta_man_initialize)     ;
+    call                                        ;
+    jump                                        ; return
+)
