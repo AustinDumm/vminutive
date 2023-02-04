@@ -134,16 +134,15 @@ impl Process {
         let value = self.stack.pop()
             .ok_or(format!("Failed to pop top value for store"))?;
         let store_start_addr = self.addr_stack.pop()
-            .ok_or(format!("Failed to pop addr value for store"))?;
+            .ok_or(format!("Failed to pop addr value for store"))? as u64;
         
-        let store_start_addr = store_start_addr + offset as u32;
-        let store_limit_addr = store_start_addr + byte_count as u32;
+        let store_start_addr = store_start_addr + offset as u64;
+        let store_limit_addr = store_start_addr + byte_count as u64;
         let store_range = store_start_addr .. store_limit_addr;
 
         let bytes = value.to_le_bytes();
         for (store_addr, byte) in store_range.zip(bytes) {
-            // println!("!!! STORING: [{}] = {}", store_addr, byte);
-            self.heap_map.insert(store_addr, byte);
+            self.heap_map.insert(store_addr as u32, byte);
         }
 
         Ok(())
@@ -158,19 +157,18 @@ impl Process {
         assert!(byte_count <= 8);
 
         let load_start_addr = self.addr_stack.pop()
-            .ok_or(format!("Failed to pop top addr value for load"))?;
+            .ok_or(format!("Failed to pop top addr value for load"))? as u64;
 
-        let load_start_addr = load_start_addr + offset as u32;
-        let load_limit_addr = load_start_addr + byte_count as u32;
+        let load_start_addr = load_start_addr + offset as u64;
+        let load_limit_addr = load_start_addr + byte_count as u64;
         let load_range = load_start_addr .. load_limit_addr;
 
         let mut byte_buffer = [0u8; 8];
 
         let load_bytes = load_range
             .map(|addr| {
-                // println!("!!! LOADED: [{}] = {:?}", addr, self.heap_map.get(&addr));
                 *self.heap_map
-                    .get(&addr)
+                    .get(&(addr as u32))
                     .unwrap_or_else(|| {
                         if (addr as usize) < instructions.len() {
                             &instructions[addr as usize]
@@ -184,7 +182,6 @@ impl Process {
         byte_buffer[..load_bytes.len()]
             .copy_from_slice(&load_bytes[..load_bytes.len()]);
 
-        // println!("!!! LOADED: [{}] = {}", load_start_addr, u64::from_le_bytes(byte_buffer));
         self.stack.push(u64::from_le_bytes(byte_buffer));
 
         Ok(())
@@ -298,7 +295,7 @@ impl Machine {
         //     active_process.stack.iter().map(|i| *i as i64).collect::<Vec<i64>>(),
         //     active_process.addr_stack.iter().map(|i| *i as i64).collect::<Vec<i64>>(),
         // );
-        // let start = 765;
+        // let start = 729;
         // let end = start + 128;
         // let mem = (start..end).step_by(8)
         //     .map(|addr| {
@@ -320,6 +317,29 @@ impl Machine {
         //         i64::from_le_bytes(bytes.try_into().unwrap())
         //     });
         // for (value, addr) in mem.zip((start..end).step_by(8)) { println!("!!! \t{}: [{}]", addr, value) }
+        // println!("!!! ====================");
+        // let start = 0xFFFFFF80;
+        // let end = 0xFFFFFFFF;
+        // let mem = (start..end).step_by(8)
+        //     .map(|addr| {
+        //         let mut bytes = vec![];
+        //         for byte_addr in addr..=(addr+7) {
+        //             let byte = active_process
+        //                 .heap_map
+        //                 .get(&byte_addr)
+        //                 .unwrap_or_else(||
+        //                     if (byte_addr as usize) < self.instructions.len() {
+        //                         &self.instructions[byte_addr as usize]
+        //                     } else {
+        //                         &0
+        //                     }
+        //                 );
+        //             bytes.push(*byte);
+        //         }
+
+        //         u64::from_le_bytes(bytes.try_into().unwrap())
+        //     });
+        // for (value, addr) in mem.zip((start..end).step_by(8)).rev() { println!("!!! \t{:0x}: [{}]", addr, value) }
 
         let pc_offset: usize =
             match instruction {

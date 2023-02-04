@@ -22,10 +22,11 @@
     push-addr (LABEL32 _sta_man_stack_pointer)  ; sta_man functions.
     push (CONST64 mem_limit)                    ;
     store8 (LIT8 0)                             ;
+    jump                                        ; return
 
 
     (DEF-LABEL _sta_man_cond_initialize)        ; Initializes stack man 
-    push-addr (LABEL32 _sta_man_cond_initialize);
+    push-addr (LABEL32 _sta_man_is_initialized) ;
     call                                        ;
                                                 ;
     push-addr (LABEL32 _sta_man_should_initialize)
@@ -59,9 +60,9 @@
     load8 (LIT8 0)                              ;
     swap                                        ;
     subtract-i                                  ;
-    push (LIT64 1)                              ;
+    push (LIT64 8)                              ;
     subtract-i                                  ;
-    duplicate                                   ; stack -> last_ptr - size - 1 -> last_ptr - size - 1
+    duplicate                                   ; stack -> last_ptr - size - 8 -> last_ptr - size - 1
                                                 ;
     push-addr (LABEL32 _sta_man_is_safe_stack_ptr)
     call                                        ;
@@ -78,7 +79,11 @@
     load8 (LIT8 0)                              ;
     store8 (LIT8 0)                             ;
                                                 ;
-    push (LIT64 1)                              ;
+    duplicate                                   ;
+    push-addr (LABEL32 _sta_man_stack_pointer)  ;
+    store8 (LIT8 0)                             ;
+                                                ;
+    push (LIT64 8)                              ;
     add-i                                       ;
     jump                                        ; return last_ptr - size
 
@@ -93,7 +98,7 @@
 
     (DEF-LABEL sta_man_pop_initialized)         ;
     push-addr (LABEL32 _sta_man_stack_pointer)  ;
-    load8                                       ;
+    load8 (LIT8 0)                              ;
     duplicate                                   ;
     push (CONST64 mem_limit)                    ;
     swap                                        ;

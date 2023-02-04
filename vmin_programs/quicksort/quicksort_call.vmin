@@ -1,12 +1,11 @@
 (
-    (INCLUDE "/Users/adumm/Dev/MessageExperiments/vmin_lib/mem_man/src/sta_man.vmin")
     
     (DEF-CONST main_start 0)                    ; main
     (DEF-CONST main_length 8)                   ;
     (DEF-CONST main_end 16)                     ;
     (DEF-CONST main_print_pid 24)               ;
                                                 ;
-    push-addr (LABEL32 heap)                    ;
+    push-addr (LABEL32 instr_end)               ;
                                                 ;
     push (LABEL64 input)                        ;
     duplicate-addr                              ;
@@ -116,6 +115,7 @@
     jump-gtz-i                                  ;
                                                 ;
     pop-addr                                    ;
+    push-addr (LABEL32 sta_man_return_pop)      ;
     jump                                        ; return - base case
                                                 ;
     (DEF-LABEL dont_exit)                       ;
@@ -286,6 +286,7 @@
     pop-to-addr                                 ;
     store8 (LIT8 0)                             ; input[second_index] = temp
                                                 ;
+    push-addr (LABEL32 sta_man_return_pop)      ;
     jump                                        ; return
                                                 ;
                                                 ;
@@ -346,7 +347,7 @@
     (DEF-CONST convert_chars_to_print 0)        ; stack -> raw_number
     (DEF-CONST ascii_0_code 48)                 ; addr-stack -> return
                                                 ;
-    push-addr (LABEL32 heap)                    ; heap[0]=chars_to_print = 0
+    push-addr (LABEL32 instr_end)               ; heap[0]=chars_to_print = 0
     duplicate-addr                              ;
     push (LIT64 0)                              ;
     store8 (CONST8 convert_chars_to_print)      ;
@@ -389,5 +390,5 @@
         16384
     ))
 
-    (DEF-LABEL heap)
+    (INCLUDE "/Users/adumm/Dev/MessageExperiments/vmin_lib/mem_man/src/sta_man.vmin")
 )
