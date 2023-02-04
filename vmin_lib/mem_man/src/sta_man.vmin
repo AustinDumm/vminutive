@@ -7,12 +7,14 @@
     ;   space allocation and function returns to ensure stack coherence during
     ;   flow of control changes.
     ;
-                                                ;
+                                                
+
     (DEF-LABEL _sta_man_stack_pointer)          ; 
     (LIT64 0)                                   ;
 
+
     (DEF-LABEL _sta_man_is_initialized)         ; Returns to the call point leaving 0 on the top of the stack
-    push-addr (LABEL32 sta_man_stack_pointer)   ; if sta_man is not initialized. Otherwise leaves a non-zero
+    push-addr (LABEL32 _sta_man_stack_pointer)  ; if sta_man is not initialized. Otherwise leaves a non-zero
     load8 (LIT8 0)                              ; value on top of the stack.
     jump                                        ;
 
@@ -20,6 +22,7 @@
     push-addr (LABEL32 sta_man_stack_pointer)   ; sta_man functions.
     push (CONST64 mem_limit)                    ;
     store8 (LIT8 0)                             ;
+
 
     (DEF-LABEL _sta_man_cond_initialize)        ; Initializes stack man 
     push-addr (LABEL32 _sta_man_cond_initialize);
@@ -33,4 +36,84 @@
     push-addr (LABEL32 _sta_man_initialize)     ;
     call                                        ;
     jump                                        ; return
+
+
+    (DEF-LABEL _sta_man_is_safe_stack_ptr)      ; Returns 0 if unsafe pointer address, otherwise non-zero
+    push (LABEL64 instr-end)                    ; @arg1 - stack pointer addr to test
+    subtract-i                                  ;
+    push-addr (LABEL32 _sta_man_is_not_safe)    ;
+    jump-lez-i                                  ;
+    push (LIT64 1)                              ;
+    jump                                        ; return
+                                                ;
+    (DEF-LABEL _sta_man_is_not_safe)            ;
+    push (LIT64 0)                              ;
+    jump                                        ; return
+
+
+    (DEF-LABEL sta_man_push_frame)              ; @arg frame_size: bytes to store in a frame
+    push-addr (LABEL32 _sta_man_cond_initialize); @ret frame_ptr: pointer to base of new stack frame |
+    call                                        ;                  0 if the push fails
+                                                ;
+    push-addr (LABEL32 _sta_man_stack_pointer)  ; 
+    load8 (LIT8 0)                              ;
+    swap                                        ;
+    subtract-i                                  ;
+    push (LIT64 1)                              ;
+    subtract-i                                  ;
+    duplicate                                   ; stack -> last_ptr - size - 1 -> last_ptr - size - 1
+                                                ;
+    push-addr (LABEL32 _sta_man_is_safe_stack_ptr)
+    call                                        ;
+    push-addr (LABEL32 _sta_man_push_is_safe)   ;
+    jump-nez-i                                  ;
+    pop                                         ;
+    push (LIT64 0)                              ;
+    jump                                        ; return FAIL
+                                                ;
+    duplicate                                   ;
+    pop-to-addr                                 ;
+    push-addr (LABEL32 _sta_man_stack_pointer)  ;
+    load8 (LIT8 0)                              ;
+    store8 (LIT8 0)                             ;
+                                                ;
+    push (LIT64 1)                              ;
+    add-i                                       ;
+    jump                                        ; return last_ptr - size
+
+
+    (DEF-LABEL _sta_man_pop_frame)              ; @ret status: 0 if the pop fails, otherwise non-zero
+    push-addr (LABEL32 _sta_man_is_initialized) ;
+    call                                        ;
+    push_addr (LABEL32 sta_man_pop_initialized) ;
+    jump-nez-i                                  ;
+    push (LIT64 0)                              ;
+    jump                                        ; return FAIL
+
+    (DEF-LABEL sta_man_pop_initialized)         ;
+    push-addr (LABEL32 _sta_man_stack_pointer)  ;
+    load8                                       ;
+    duplicate                                   ;
+    push (CONST64 mem_limit)                    ;
+    swap                                        ;
+    subtract-i                                  ; stack -> mem_limit - _sta_man_stack_pointer -> _sta_man_stack_pointer
+    push-addr (LABEL32 sta_man_can_pop)         ;
+    jump-gez-i                                  ;
+    pop                                         ;
+    push (LIT64 0)                              ;
+    jump                                        ; return FAIL
+                                                ;
+    pop-to-addr                                 ;
+    load8  (LIT8 0)                             ; stack -> last_stack_ptr
+    push-addr (LABEL32 _sta_man_stack_pointer)  ;
+    store8 (LIT8 0)                             ;
+                                                ;
+    jump                                        ; return
+
+
+    (DEF-LABEL sta_man_return_pop)              ; @addr-arg: return addr
+    push-addr (LABEL32 _sta_man_pop_frame)      ; @ret Non-Returning, must be used with JUMP
+    call                                        ;
+                                                ;
+    jump                                        ; return after popping frame
 )
