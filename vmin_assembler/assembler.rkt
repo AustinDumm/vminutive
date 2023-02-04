@@ -17,7 +17,9 @@
 (define (fetch-include instruction)
   (define file-name (list-ref instruction 1))
   (define file (open-input-file file-name))
-  (read file))
+  (define file-data (read file))
+  (close-input-port file)
+  file-data)
 
 (define (include? instruction)
   (and (list? instruction)
@@ -25,10 +27,10 @@
 
 (define (process-include
          instruction-list)
-  (map (lambda (instruction)
+  (append-map (lambda (instruction)
                 (if (include? instruction)
                     (fetch-include instruction)
-                    instruction))
+                    (list instruction)))
               instruction-list))
 
 (define (script? instruction)

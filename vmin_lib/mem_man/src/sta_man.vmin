@@ -19,7 +19,7 @@
     jump                                        ;
 
     (DEF-LABEL _sta_man_initialize)             ; Sets the stack pointer to the memory limit to initialize
-    push-addr (LABEL32 sta_man_stack_pointer)   ; sta_man functions.
+    push-addr (LABEL32 _sta_man_stack_pointer)  ; sta_man functions.
     push (CONST64 mem_limit)                    ;
     store8 (LIT8 0)                             ;
 
@@ -39,7 +39,7 @@
 
 
     (DEF-LABEL _sta_man_is_safe_stack_ptr)      ; Returns 0 if unsafe pointer address, otherwise non-zero
-    push (LABEL64 instr-end)                    ; @arg1 - stack pointer addr to test
+    push (LABEL64 instr_end)                    ; @arg1 - stack pointer addr to test
     subtract-i                                  ;
     push-addr (LABEL32 _sta_man_is_not_safe)    ;
     jump-lez-i                                  ;
@@ -71,6 +71,7 @@
     push (LIT64 0)                              ;
     jump                                        ; return FAIL
                                                 ;
+    (DEF-LABEL _sta_man_push_is_safe)           ;
     duplicate                                   ;
     pop-to-addr                                 ;
     push-addr (LABEL32 _sta_man_stack_pointer)  ;
@@ -85,7 +86,7 @@
     (DEF-LABEL _sta_man_pop_frame)              ; @ret status: 0 if the pop fails, otherwise non-zero
     push-addr (LABEL32 _sta_man_is_initialized) ;
     call                                        ;
-    push_addr (LABEL32 sta_man_pop_initialized) ;
+    push-addr (LABEL32 sta_man_pop_initialized) ;
     jump-nez-i                                  ;
     push (LIT64 0)                              ;
     jump                                        ; return FAIL
@@ -103,6 +104,7 @@
     push (LIT64 0)                              ;
     jump                                        ; return FAIL
                                                 ;
+    (DEF-LABEL sta_man_can_pop)                 ;
     pop-to-addr                                 ;
     load8  (LIT8 0)                             ; stack -> last_stack_ptr
     push-addr (LABEL32 _sta_man_stack_pointer)  ;
