@@ -34,7 +34,7 @@
     load8 (LIT8 0)                              ;
                                                 ;
     push-addr (LABEL32 _mem_man_init_block)     ;
-    call                                        ; mem_man_init_block/4 
+    call                                        ; mem_man_init_block 
                                                 ;   -> *mem_man_heap_free_ptr, heap_size, mem_man_null, mem_man_null
     jump                                        ;
 
@@ -64,7 +64,8 @@
     (DEF-CONST mem_man_init_block_block_size 8)
     (DEF-CONST mem_man_init_block_next_block 16)
     (DEF-CONST mem_man_init_block_prev_block 24)
-    (DEF-CONST mem_man_block_header_footer_size 24)
+    (DEF-CONST mem_man_block_header_footer_size 16)
+    (DEF-CONST mem_man_min_block_size 24)       ;
     (DEF-CONST mem_man_init_block_mask 4294967290)
 
     push (LIT64 32)                             ; push-addr (call sta_man_push_frame frame_size=32)
@@ -83,6 +84,8 @@
                                                 
     duplicate-addr                              ;
     load8 (CONST8 mem_man_init_block_block_size);
+    push (CONST8 mem_man_min_block_size)        ;
+    subtract-i                                  ;
     duplicate-addr (LABEL32 mem_man_init_block_can_init)
     jump-gtz-i                                  ;
     pop-addr                                    ;
@@ -138,9 +141,92 @@
     push-addr (LABEL32 sta_man_return_pop)      ;
     jump                                        ; return
 
+
+    (DEF-LABEL _mem_man_alloc_block)            ; stack -> block_addr -> block_size
+    (DEF-CONST8 _mem_man_alloc_block_addr 0)    ;
+    (DEF-CONST8 _mem_man_alloc_block_size 8)    ;
+                                                ;
+    (DEF-CONST8 _mem_man_alloc_block_frame 16)  ;
+                                                ;
+    pop-to-addr                                 ; let _block_addr = block_addr
+    duplicate                                   ; let _block_size = block_size + block_size % 8
+    push (LIT64 8)                              ; _block_addr[0] = _block_size + 1
+    modulus                                     ; _block_addr[block_size - 8] = _block_size + 1
+    add-i                                       ;
+                                                ;
+    duplicate-addr                              ;
+    duplicate                                   ;
+    push (LIT64 1)                              ;
+    add-i                                       ;
+    store8 (LIT8 0)                             ;
+                                                ;
+    duplicate                                   ;
+    pop-to-stack                                ;
+    add-i                                       ;
+    push (LIT64 8)                              ;
+    subtract-i                                  ;
+    pop-to-addr                                 ;
+    push (LIT64 1)                              ;
+    add-i                                       ;
+    store8 (LIT8 0)                             ;
+                                                ;
+    jump                                        ; return
+
     
     (DEF-LABEL mem_man_alloc)                   ; stack -> bytes_to_reserve
-    ; let block_to_use = call _mem_man_find_free_block
+                                                ; @ret 0 if no allocation space available
+                                                ;     -1 if unrecoverable error encountered
+                                                ;      <addr> of allocated block of size bytes_to_reserve
+    (DEF-CONST _mem_man_alloc_reserve_bytes 0)  ;
+    (DEF-CONST _mem_man_alloc_block_addr 8)     ;
+    (DEF-CONST _mem_man_next_free_addr 16)      ;
+    (DEF-CONST _mem_man_prev_free_addr 24)      ;
+    (DEF-CONST _mem_man_remaining_bytes 32)     ;
+    (DEF-CONST _mem_man_new_free_start 40)      ;
+                                                ;
+    (DEF-CONST _mem_man_stack_frame_size 48)    ;
+                                                ;
+    ; call sta_man_push_frame(size=_mem_man_stack_frame_size)
+    ;
+    ; _mem_man_alloc_reserve_bytes = bytes_to_reserve + bytes_to_reserve % 8
+    ;
+    ; let _mem_man_alloc_block_addr = call _mem_man_find_free_block(_mem_man_alloc_reserve_bytes)
+    ; if _mem_man_alloc_block_addr == -1
+    ;       return -1
+    ; else if _mem_man_alloc_block_addr == 0
+    ;       return 0
+    ;
+    ; let _mem_man_next_free_addr = block_to_use[8..12]
+    ; let _mem_man_prev_free_addr = block_to_use[12..16]
+    ;
+    ; let _this_block_size = _alloc_reserve_bytes + mem_man_block_header_footer_size
+    ; let _new_free_start = _alloc_block_addr + _this_block_size
+    ; let _remaining_bytes = *_alloc_block_addr - _this_block_size
+    ;
+    ; result = call _mem_man_init_block(_new_free_start, _remaining_bytes, _next_free_addr, _prev_free_addr)
+    ; if result = 0
+    ;   if _next_free_addr != null
+    ;       _next_free_addr[12..16] = _prev_free_addr
+    ;
+    ;   if _prev_free_addr != null
+    ;       _prev_free_addr[8..12] = _next_free_addr
+    ;   else
+    ;       _mem_man_heap_free_ptr = _next_free_addr
+    ;
+    ;   call _mem_man_alloc_block(_alloc_block_addr, *_alloc_block_addr)
+    ; else
+    ;   if _next_free_addr != null
+    ;       _next_free_addr[12..16] = result
+    ;
+    ;   if _prev_free_addr != null
+    ;       _prev_free_addr[8..12] = result
+    ;   else
+    ;       _mem_man_heap_free_ptr = result
+    ;
+    ;   call _mem_man_alloc_block(_alloc_block_addr, _this_block_size)
+    ;
+    ; push _alloc_block_addr + 8 // block size header space
+    push-addr (LABEL32 sta_man_return_pop)      ;
     jump                                        ; return
 
     
