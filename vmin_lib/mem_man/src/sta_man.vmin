@@ -11,6 +11,8 @@
 
     (DEF-LABEL _sta_man_stack_pointer)          ; 
     (LIT64 0)                                   ;
+    (DEF-LABEL _sta_man_stack_limit)            ;
+    (CONST64 instr_end)                         ;
 
 
     (DEF-LABEL _sta_man_is_initialized)         ; Returns to the call point leaving 0 on the top of the stack
@@ -40,7 +42,9 @@
 
 
     (DEF-LABEL _sta_man_is_safe_stack_ptr)      ; Returns 0 if unsafe pointer address, otherwise non-zero
-    push (LABEL64 instr_end)                    ; @arg1 - stack pointer addr to test
+                                                ; @arg1 - stack pointer addr to test
+    push-addr (LABEL32 _sta_man_stack_limit)    ;
+    load8 (LIT8 0)                              ;
     subtract-i                                  ;
     push-addr (LABEL32 _sta_man_is_not_safe)    ;
     jump-lez-i                                  ;
@@ -123,4 +127,23 @@
     call                                        ;
                                                 ;
     jump                                        ; return after popping frame
+
+
+    (DEF-LABEL sta_man_set_limit)               ; @arg: memory address to set stack limit
+    duplicate                                   ; @ret: 0 if set failed, otherwise non-zero
+    push-addr (LABEL32 _sta_man_stack_pointer)  ;
+    load8 (LIT8 0)                              ;
+    subtract-i                                  ; stack -> new_limit - stack_pointer -> new_limit
+    push-addr (LABEL32 _sta_man_set_limit_can_set)
+    jump-gez-i                                  ;
+    pop                                         ;
+    push (LIT64 0)                              ;
+    jump                                        ; return
+
+    (DEF-LABEL _sta_man_set_limit_can_set)      ;
+    push-addr (LABEL32 _sta_man_stack_limit)    ;
+    store8 (LIT8 0)                             ;
+                                                ;
+    push (LIT64 1)                              ;
+    jump                                        ; return
 )

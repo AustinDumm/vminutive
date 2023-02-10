@@ -22,7 +22,13 @@
                 (- bytes 1)
                 (cons (remainder number full-byte)
                       running))))
-  (reverse (helper literal size '())))
+
+  (define (literal->unsigned literal)
+    (if (< literal 0)
+        (+ 1 (bitwise-xor (- (expt 2 (* size 8)) 1) (abs literal)))
+        literal))
+  
+  (reverse (helper (literal->unsigned literal) size '())))
 
 (define (tear predicate list)
   (let* ((torn (foldl (lambda (item acc)

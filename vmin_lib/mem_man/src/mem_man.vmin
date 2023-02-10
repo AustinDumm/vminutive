@@ -1,38 +1,231 @@
 (
     (DEF-CONST mem_man_null 0)
+    (DEF-CONST _mem_man_init_size 1048576)
 
-    (DEF-LABEL mem_man_heap_free_ptr)
+    (DEF-LABEL _mem_man_heap_free_ptr)
     (CONST64 mem_man_null)
 
-    (DEF-LABEL mem_man_is_initialized)
-    (LIT64 0)
+    (DEF-LABEL _mem_man_init)                   ; _mem_man_init
+                                                ; @ret - 0 if failed, otherwise non-0
+    push (CONST64 instr_end)                    ; *mem_man_heap_free_ptr = instr-end + (instr-end % 8)
+    duplicate                                   ;
+    push (LIT64 8)                              ;
+    modulus                                     ;
+    add-i                                       ;
+    push-addr (LABEL32 _mem_man_heap_free_ptr)  ;
+    duplicate                                   ;
+    store8 (LIT8 0)                             ;
+                                                ;
+    push (CONST64 _mem_man_init_size)           ;
+    add-i                                       ;
+    push-addr (LABEL32 sta_man_set_limit)       ;
+    call                                        ;
+    push-addr (LABEL32 _mem_man_can_init)       ;
+    jump-nez-i                                  ;
+    pop                                         ;
+    push (LIT64 0)                              ;
+    jump                                        ; return
+                                                ;
+    (DEF-LABEL _mem_man_can_init)               ;
+    push (CONST64 mem_man_null)                 ;
+    push (CONST64 mem_man_null)                 ;
+    push (CONST64 _mem_man_init_size)           ;
+    push-addr (LABEL32 _mem_man_heap_free_ptr)  ;
+    load8 (LIT8 0)                              ;
+                                                ;
+    push-addr (LABEL32 _mem_man_init_block)     ;
+    call                                        ; mem_man_init_block/4 
+                                                ;   -> *mem_man_heap_free_ptr, heap_size, mem_man_null, mem_man_null
+    jump                                        ;
 
-    (DEF-LABEL mem_man_init/0)                  ; mem_man_init
-    ; *mem_man_is_initialized = 1_64
-    ; *mem_man_heap_free_ptr = instr-end + (instr-end % 8)
-    ; heap_size = (mem_limit - mem_man_heap_free_ptr) >> 1
-    ; mem_man_init_block/4 -> *mem_man_heap_free_ptr, heap_size, mem_man_null, mem_man_null
+    
+    (DEF-LABEL _mem_man_is_init)                ; @ret 0 if not initialized, otherwise non-zero
+    push-addr (LABEL32 _mem_man_heap_free_ptr)  ;
+    load8 (LIT8 0)                              ;
+    jump                                        ; return
 
-                                                ; mem_man_init_block static storage
-    (DEF-LABEL mem_man_init_block_static)
-    (DEF-CONST mem_man_init_block_block_addr 0)
+
+    (DEF-LABEL _mem_man_cond_init)              ;
+    push-addr (LABEL32 _mem_man_is_init)        ;
+    call                                        ;
+                                                ;
+    push-addr (LABEL32 _mem_man_already_init)   ;
+    jump-nez-i                                  ;
+    push-addr (LABEL32 _mem_man_init)           ;
+    call                                        ;
+    jump                                        ; return
+                                                ;
+    (DEF-LABEL _mem_man_already_init)           ;
+    jump                                        ; return
+
+ 
+    (DEF-LABEL _mem_man_init_block)             ; stack -> block_addr -> block_size -> next_block -> prev_block
+    (DEF-CONST mem_man_init_block_block_addr 0) ; @ret - 0 if failure, otherwise non-zero
     (DEF-CONST mem_man_init_block_block_size 8)
     (DEF-CONST mem_man_init_block_next_block 16)
     (DEF-CONST mem_man_init_block_prev_block 24)
-    (DEF-CONST mem_man_block_header_size 16)
+    (DEF-CONST mem_man_block_header_footer_size 24)
+    (DEF-CONST mem_man_init_block_mask 4294967290)
+
+    push (LIT64 32)                             ; push-addr (call sta_man_push_frame frame_size=32)
+    push-addr (LABEL32 sta_man_push_frame)      ;
+    call                                        ;
+    pop-to-addr                                 ;
                                                 ;
-    (DEF-LABEL mem_man_init_block/)            ; stack -> block_addr -> block_size -> next_block -> prev_block
-    (DEF-CONST mem_map_init_block_mask 4294967290)
-    ; block_addr = block_addr & mem_map_init_block_mask
-    ; *mem_man_init_block_block_addr = block_addr
-    ; *mem_man_init_block_block_size = block_size
-    ; *mem_man_init_block_next_block = next_block
-    ; *mem_man_init_block_prev_block = prev_block
-    ;
-    ; *mem_man_init_block_block_addr[0..4] = mem_man_init_block_block_size[0..4]
-    ; (*mem_man_init_block_block_addr)[*mem_man_init_block_block_size - 4..*mem_man_init_block_block_size] 
-    ;       = mem_man_init_block_block_size[0..4]
-    ; 
-    ; (*mem_man_init_block_block_addr)[4..8] = mem_man_init_block_next_block[0..4]
-    ; (*mem_man_init_block_block_addr)[8..12] = mem_man_init_block_prev_block[0..4]
+    duplicate-addr                              ;
+    store8 (CONST8 mem_man_init_block_addr)     ;
+    duplicate-addr                              ;
+    store8 (CONST8 mem_man_init_block_block_size)
+    duplicate-addr                              ;
+    store8 (CONST8 mem_man_init_block_next_block)
+    duplicate-addr                              ;
+    store8 (CONST8 mem_man_init_block_prev_block)
+                                                
+    duplicate-addr                              ;
+    load8 (CONST8 mem_man_init_block_block_size);
+    duplicate-addr (LABEL32 mem_man_init_block_can_init)
+    jump-gtz-i                                  ;
+    pop-addr                                    ;
+    push (LIT64 0)                              ;
+    jump                                        ; return FAIL
+                                                ;
+    (DEF-LABEL mem_man_init_block_can_init)     ;
+    duplicate-addr                              ; block_addr = block_addr & mem_map_init_block_mask
+    load8 (CONST8 mem_man_init_block_addr)      ;
+    push (CONST64 mem_man_init_block_mask)      ;
+    bitwise-and                                 ;
+    duplicate-addr                              ;
+    store8 (CONST8 mem_man_init_block_addr)     ;
+                                                ;
+    duplicate-addr                              ;
+    load8 (CONST8 mem_man_init_block_block_size);
+    duplicate                                   ;
+    duplicate-addr                              ; *mem_man_init_block_block_addr =
+    load8 (CONST8 mem_man_init_block_block_addr);       mem_man_init_block_block_size
+    pop-to-addr                                 ;
+    store8 (LIT8 0)                             ;
+                                                ;
+    duplicate-addr                              ; (*mem_man_init_block_block_addr)[
+    load8 (CONST8 mem_man_init_block_block_addr);       (*mem_man_init_block_block_size - 8)..
+    duplicate-addr                              ;           (*mem_man_init_block_block_size) 
+    load8 (CONST8 mem_man_init_block_block_size);       ] = mem_man_init_block_block_size
+    push (LIT64 8)                              ;
+    subtract-i                                  ;
+    add-i                                       ;
+    pop-to-addr                                 ;
+    store8 (LIT8 0)                             ; 
+                                                ;
+    duplicate-addr                              ;
+    load8 (CONST8 mem_man_init_block_next_block);
+    duplicate-addr                              ; (*mem_man_init_block_block_addr)[8..12] =
+    load8 (CONST8 mem_man_init_block_block_addr);       mem_man_init_block_next_block[0..4]
+    push (LIT64 8)                              ;
+    add-i                                       ;
+    pop-to-addr                                 ;
+    store4 (LIT8 0)                             ;
+                                                ;
+    duplicate-addr                              ;
+    load8 (CONST8 mem_man_init_block_prev_block);
+    duplicate-addr                              ; (*mem_man_init_block_block_addr)[12..16] =
+    load8 (CONST8 mem_man_init_block_block_addr);       mem_man_init_block_prev_block[0..4]
+    push (LIT64 12)                             ;
+    add-i                                       ;
+    pop-to-addr                                 ;
+    store4 (LIT8 0)                             ;
+                                                ;
+    pop-addr                                    ;
+    push (LIT64 1)                              ;
+    push-addr (LABEL32 sta_man_return_pop)      ;
+    jump                                        ; return
+
+    
+    (DEF-LABEL mem_man_alloc)                   ; stack -> bytes_to_reserve
+    ; let block_to_use = call _mem_man_find_free_block
+    jump                                        ; return
+
+    
+    (DEF-LABEL _mem_man_find_free_block)        ; stack -> bytes_to_reserve -> first_test_block_addr
+    (DEF-CONST _mem_man_is_used_mask 1)         ;
+    (DEF-CONST _mem_man_find_reserve_bytes 0)   ; @ret - 0 if no block found, otherwise
+    (DEF-CONST _mem_man_test_block_addr 8)      ;       -1 if ran into allocated block
+                                                ;       addr of valid block if one found
+    push (LIT64 16)                             ;
+    push-addr (LABEL32 sta_man_push_frame)      ;
+    jump                                        ; register frame
+    pop-to-addr                                 ;
+                                                ;
+    duplicate-addr                              ;
+    store8 (CONST8 _mem_man_find_reserve_bytes) ;
+    duplicate-addr                              ;
+    store8 (CONST8 _mem_man_test_block_addr)    ;
+                                                ;
+    duplicate-addr                              ;
+    load8 (CONST8 _mem_man_test_block_addr)     ;
+    push-addr (LABEL32 _mem_man_find_loop)      ;
+    jump-eqz-i                                  ;
+    pop-addr                                    ;
+    push-addr (LABEL32 sta_man_return_pop)      ;
+    push (LIT64 0)                              ;
+    jump                                        ; return 0 (null)
+                                                ;
+    (DEF-LABEL _mem_man_find_loop)              ;
+    duplicate-addr                              ; Sanity check to make sure the block is unallocated
+    load8 (CONST8 _mem_man_test_block_addr)     ;
+    pop-to-addr                                 ;
+    load8 (LIT8 0)                              ;
+    duplicate                                   ;
+    push (CONST8 _mem_man_is_used_mask 1)       ;
+    bitwise-and                                 ;
+    push-addr (LABEL32 _mem_man_block_allocated);
+    jump-nez-i                                  ;
+                                                ; stack -> test_block_size
+    duplicate-addr                              ; If the block size is greater than bytes to reserve, break
+    push (CONST64 mem_man_block_header_footer_size)
+    subtract-i                                  ;
+    load8 (CONST8 _mem_man_find_reserve_bytes)  ;
+    subtract-i                                  ;
+    push-addr (LABEL32 _mem_man_found_block)    ;
+    jump-gez-i                                  ; stack ->
+                                                ;
+    duplicate-addr                              ;
+    load8 (CONST8 _mem_man_test_block_addr)     ;
+    push (LIT64 8)                              ; Add "next_block" offset
+    add-i                                       ;
+    pop-to-addr                                 ;
+    load4 (LIT8 0)                              ; stack -> *next_block
+                                                ;
+    duplicate                                   ;
+    push-addr (LABEL32 _mem_man_no_block)       ;
+    load8 (LIT8 0)                              ;
+    jump-eqz-i                                  ;
+                                                ;
+    duplicate-addr                              ;
+    store8 (CONST8 _mem_man_test_block_addr)    ;
+    push-addr (LABEL32 _mem_man_find_loop)      ;
+    jump                                        ;
+                                                ;
+    (DEF-LABEL _mem_man_found_block)            ;
+    store8 (CONST8 _mem_man_test_block_addr)    ;
+    pop-addr                                    ;
+    push-addr (LABEL32 sta_man_return_pop)      ;
+    jump                                        ; return found_block_addr
+                                                ;
+    (DEF-LABEL _mem_man_no_block)               ;
+    pop                                         ;
+    pop-addr                                    ;
+    push (LIT64 0)                              ;
+    push-addr (LABEL32 sta_man_return_pop)      ;
+    jump                                        ; return 0 (null)
+                                                ;
+    (DEF-LABEL _mem_man_block_allocated)        ;
+    pop-addr                                    ;
+    push (LIT64 -1)                             ;
+    push-addr (LABEL32 sta_man_return_pop)      ;
+    jump                                        ; return unrecoverable error -1
+    
+
+    (DEF-LABEL mem_man_free)                    ; stack -> ptr_to_block
+    jump                                        ; return
+
+    (INCLUDE "../sta_man.vmin")
 )

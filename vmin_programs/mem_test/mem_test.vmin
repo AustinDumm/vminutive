@@ -1,0 +1,74 @@
+(
+    push-addr (LABEL32 first)
+    call
+    
+    push-addr (LABEL32 mem_man_alloc)
+    push (LIT64 16)
+    call
+
+    duplicate
+    pop-to-addr
+
+    push (LIT64 2222)
+    duplicate-addr
+    store8 (LIT8 0)
+
+    push (LIT64 4444)
+    store8 (LIT8 8)
+
+    push-addr (LABEL32 mem_man_free)
+    call
+
+    push (LIT64 8)
+    push-addr (LABEL32 mem_man_alloc)
+    call
+
+    pop-to-addr
+    push (LIT64 88)
+    store8 (LIT8 0)
+    die
+
+    
+    (DEF-LABEL first)
+    push-addr (LABEL32 second)
+    call
+    jump
+
+    (DEF-LABEL second)
+    push-addr (LABEL32 third)
+    call
+    jump
+
+    (DEF-LABEL third)
+    push-addr (LABEL32 fourth)
+    call
+    jump
+
+    (DEF-LABEL fourth)
+    push (LIT64 32)
+    push-addr (LABEL32 mem_man_alloc)
+    jump
+
+    duplicate
+    pop-to-addr
+
+    push (LIT64 867)
+    duplicate-addr
+    store8 (LIT8 0)
+
+    push (LIT64 5309)
+    duplicate-addr
+    store8 (LIT8 8)
+
+    push (LIT64 8675309)
+    duplicate-addr
+    store8 (LIT8 16)
+
+    push (LIT64 9035768)
+    store8 (LIT8 32)
+
+    jump
+    
+    
+    (INCLUDE "/Users/adumm/Dev/MessageExperiments/vmin_lib/mem_man/src/mem_man.vmin")
+)
