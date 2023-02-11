@@ -120,7 +120,11 @@
          (defs-commands (tear def-label-addr-pair?
                               command-addrs))
          (defs (list-ref defs-commands 0))
-         (command-addrs (list-ref defs-commands 1)))
+         (command-addrs (list-ref defs-commands 1))
+         (end-addr (list-ref (last command-addrs) 1))
+         (aligned-end-addr (+ end-addr (- 8 (modulo end-addr 8))))
+         (end-def `(((DEF-LABEL instr_end) ,aligned-end-addr)))
+         (defs (append defs end-def)))
     (for ([def defs])
       (let* ((def-command (list-ref def 0))
              (def-label (list-ref def-command 0))

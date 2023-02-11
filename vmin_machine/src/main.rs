@@ -1,6 +1,6 @@
 use std::{fs::File, io::Read};
 
-use little::{Machine, InputPeripheral, OutputPeripheral};
+use vmin_machine::{Machine, InputPeripheral, OutputPeripheral};
 
 
 fn main() -> Result<(), String> {

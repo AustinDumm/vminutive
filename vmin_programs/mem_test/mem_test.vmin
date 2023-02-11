@@ -26,6 +26,7 @@
     pop-to-addr
     push (LIT64 88)
     store8 (LIT8 0)
+    push (LABEL64 instr_end)
     die
 
     
@@ -47,7 +48,7 @@
     (DEF-LABEL fourth)
     push (LIT64 32)
     push-addr (LABEL32 mem_man_alloc)
-    jump
+    call
 
     duplicate
     pop-to-addr
@@ -65,7 +66,7 @@
     store8 (LIT8 16)
 
     push (LIT64 9035768)
-    store8 (LIT8 32)
+    store8 (LIT8 24)
 
     jump
     

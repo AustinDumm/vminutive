@@ -12,7 +12,7 @@
     (DEF-LABEL _sta_man_stack_pointer)          ; 
     (LIT64 0)                                   ;
     (DEF-LABEL _sta_man_stack_limit)            ;
-    (CONST64 instr_end)                         ;
+    (LABEL64 instr_end)                         ;
 
 
     (DEF-LABEL _sta_man_is_initialized)         ; Returns to the call point leaving 0 on the top of the stack

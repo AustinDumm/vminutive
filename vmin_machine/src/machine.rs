@@ -287,59 +287,59 @@ impl Machine {
                 active_program_counter
             ))?;
 
-        // println!(
-        //     "!!! PId: {},\n\tinstruction: {:?}@{},\n\tstack: {:?}\n\taddr-stack: {:?}",
-        //     active_process_id,
-        //     instruction,
-        //     active_program_counter,
-        //     active_process.stack.iter().map(|i| *i as i64).collect::<Vec<i64>>(),
-        //     active_process.addr_stack.iter().map(|i| *i as i64).collect::<Vec<i64>>(),
-        // );
-        // let start = 729;
-        // let end = start + 128;
-        // let mem = (start..end).step_by(8)
-        //     .map(|addr| {
-        //         let mut bytes = vec![];
-        //         for byte_addr in addr..(addr+8) {
-        //             let byte = active_process
-        //                 .heap_map
-        //                 .get(&byte_addr)
-        //                 .unwrap_or_else(||
-        //                     if (byte_addr as usize) < self.instructions.len() {
-        //                         &self.instructions[byte_addr as usize]
-        //                     } else {
-        //                         &0
-        //                     }
-        //                 );
-        //             bytes.push(*byte);
-        //         }
+        println!(
+            "!!! PId: {},\n\tinstruction: {:?}@{},\n\tstack: {:?}\n\taddr-stack: {:?}",
+            active_process_id,
+            instruction,
+            active_program_counter,
+            active_process.stack.iter().map(|i| *i as i64).collect::<Vec<i64>>(),
+            active_process.addr_stack.iter().map(|i| *i as i64).collect::<Vec<i64>>(),
+        );
+        let start = 0x568;
+        let end = start + 256;
+        let mem = (start..end).step_by(8)
+            .map(|addr| {
+                let mut bytes = vec![];
+                for byte_addr in addr..(addr+8) {
+                    let byte = active_process
+                        .heap_map
+                        .get(&byte_addr)
+                        .unwrap_or_else(||
+                            if (byte_addr as usize) < self.instructions.len() {
+                                &self.instructions[byte_addr as usize]
+                            } else {
+                                &0
+                            }
+                        );
+                    bytes.push(*byte);
+                }
 
-        //         i64::from_le_bytes(bytes.try_into().unwrap())
-        //     });
-        // for (value, addr) in mem.zip((start..end).step_by(8)) { println!("!!! \t{}: [{}]", addr, value) }
-        // println!("!!! ====================");
-        // let start = 0xFFFFFF80;
-        // let end = 0xFFFFFFFF;
-        // let mem = (start..end).step_by(8)
-        //     .map(|addr| {
-        //         let mut bytes = vec![];
-        //         for byte_addr in addr..=(addr+7) {
-        //             let byte = active_process
-        //                 .heap_map
-        //                 .get(&byte_addr)
-        //                 .unwrap_or_else(||
-        //                     if (byte_addr as usize) < self.instructions.len() {
-        //                         &self.instructions[byte_addr as usize]
-        //                     } else {
-        //                         &0
-        //                     }
-        //                 );
-        //             bytes.push(*byte);
-        //         }
+                i64::from_le_bytes(bytes.try_into().unwrap())
+            });
+        for (value, addr) in mem.zip((start..end).step_by(8)) { println!("!!! \t{}=0x{:0x}: [{}]", addr, addr, value) }
+        println!("!!! ====================");
+        let start = 0xFFFFFF80;
+        let end = 0xFFFFFFFF;
+        let mem = (start..end).step_by(8)
+            .map(|addr| {
+                let mut bytes = vec![];
+                for byte_addr in addr..=(addr+7) {
+                    let byte = active_process
+                        .heap_map
+                        .get(&byte_addr)
+                        .unwrap_or_else(||
+                            if (byte_addr as usize) < self.instructions.len() {
+                                &self.instructions[byte_addr as usize]
+                            } else {
+                                &0
+                            }
+                        );
+                    bytes.push(*byte);
+                }
 
-        //         u64::from_le_bytes(bytes.try_into().unwrap())
-        //     });
-        // for (value, addr) in mem.zip((start..end).step_by(8)).rev() { println!("!!! \t{:0x}: [{}]", addr, value) }
+                u64::from_le_bytes(bytes.try_into().unwrap())
+            });
+        for (value, addr) in mem.zip((start..end).step_by(8)).rev() { println!("!!! \t{:0x}: [{}]", addr, value) }
 
         let pc_offset: usize =
             match instruction {

@@ -19,7 +19,7 @@
   (define file (open-input-file file-name))
   (define file-data (read file))
   (close-input-port file)
-  file-data)
+  (process-include file-data))
 
 (define (include? instruction)
   (and (list? instruction)
@@ -69,7 +69,6 @@
                           instruction-lookup))
    flatten
    process-label-commands
-   place-instr-end
    process-const-commands
    place-const-mem-limit
    process-lit-commands
