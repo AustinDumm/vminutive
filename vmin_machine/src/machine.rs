@@ -295,7 +295,7 @@ impl Machine {
             active_process.stack.iter().map(|i| *i as i64).collect::<Vec<i64>>(),
             active_process.addr_stack.iter().map(|i| *i as i64).collect::<Vec<i64>>(),
         );
-        let start = 0x568;
+        let start = 0x570;
         let end = start + 256;
         let mem = (start..end).step_by(8)
             .map(|addr| {
