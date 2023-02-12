@@ -2,11 +2,11 @@
     push-addr (LABEL32 first)
     call
     
-    push-addr (LABEL32 mem_man_alloc) ; !!!@6
+    push-addr (LABEL32 mem_man_alloc) ; 
     push (LIT64 16)
     call
 
-    duplicate ; !!!@21
+    duplicate ; 
     pop-to-addr
 
     push (LIT64 2222)
@@ -16,12 +16,13 @@
     push (LIT64 4444)
     store8 (LIT8 8)
 
+    swap
     push-addr (LABEL32 mem_man_free)
     call
 
     push (LIT64 8)
     push-addr (LABEL32 mem_man_alloc)
-    call ; !!!@66
+    call ; 
 
     pop-to-addr
     push (LIT64 88)
