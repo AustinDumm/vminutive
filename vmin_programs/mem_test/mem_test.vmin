@@ -1,4 +1,5 @@
 (
+    push (LABEL64 instr_end)
     push-addr (LABEL32 first)
     call
     
@@ -18,15 +19,22 @@
 
     swap
     push-addr (LABEL32 mem_man_free)
-    call
+    call ; !!!@61
 
     push (LIT64 8)
     push-addr (LABEL32 mem_man_alloc)
-    call ; 
+    call ; !!!@76
 
+    duplicate
     pop-to-addr
     push (LIT64 88)
     store8 (LIT8 0)
+    
+    push-addr (LABEL32 mem_man_free) ; !!!@90 // SOMETHING IS FAILING HERE
+    call
+    push-addr (LABEL32 mem_man_free)
+    call
+    
     push (LABEL64 instr_end)
     die
 

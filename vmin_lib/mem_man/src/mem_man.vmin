@@ -2,6 +2,10 @@
     (DEF-CONST mem_man_null 0)
     (DEF-CONST _mem_man_init_size 1048576)
 
+    (DEF-LABEL _mem_man_heap_start)
+    (CONST64 mem_man_null)
+    (DEF-LABEL _mem_man_heap_end)
+    (CONST64 mem_man_null)
     (DEF-LABEL _mem_man_heap_free_ptr)
     (CONST64 mem_man_null)
 
@@ -10,12 +14,18 @@
     push (LABEL64 instr_end)                    ; *mem_man_heap_free_ptr = instr-end + (instr-end % 8)
     push-addr (LABEL32 _mem_man_align)          ;
     call                                        ;
+    push-addr (LABEL32 _mem_man_heap_start)     ;
+    duplicate                                   ;
+    store8 (LIT8 0)                             ;
     push-addr (LABEL32 _mem_man_heap_free_ptr)  ; 
     duplicate                                   ;
     store8 (LIT8 0)                             ;
                                                 ;
     push (CONST64 _mem_man_init_size)           ;
     add-i                                       ;
+    duplicate                                   ;
+    push-addr (LABEL32 _mem_man_heap_end)       ;
+    store8 (LIT8 0)                             ;
     push-addr (LABEL32 sta_man_set_limit)       ;
     call                                        ; 
     push-addr (LABEL32 _mem_man_can_init)       ;
@@ -87,7 +97,7 @@
     (DEF-CONST mem_man_min_block_size 24)       ;
     (DEF-CONST mem_man_init_block_mask 4294967290)
 
-    push (LIT64 32)                             ; !!!@349
+    push (LIT64 32)                             ;
     push-addr (LABEL32 sta_man_push_frame)      ;
     call                                        ;
     pop-to-addr                                 ;
@@ -485,15 +495,15 @@
                                                 ;
     (DEF-CONST _mem_man_frame_size 16)          ;
                                                 ;
-    push-addr (LABEL32 _mem_man_cond_init)      ; !!!@1094
+    push-addr (LABEL32 _mem_man_cond_init)      ; !!!@1148
     call                                        ;
                                                 ;
-    push (CONST64 _mem_man_frame_size)          ; !!!@1100
+    push (CONST64 _mem_man_frame_size)          ;
     push-addr (LABEL32 sta_man_push_frame)      ;
     call                                        ;
-    pop-to-addr                                 ; !!!@1115
+    pop-to-addr                                 ;
                                                 ;
-    push (LIT64 8)                              ;
+    push (LIT64 8)                              ; !!!@1170
     subtract-i                                  ;
     duplicate-addr                              ;
     duplicate                                   ;
@@ -513,12 +523,21 @@
     jump                                        ;   return 0 // Double free error
                                                 ;
     (DEF-LABEL _mem_man_no_double_free)         ;
-    push (LIT64 -2)                             ; let _block_size = _block_size & -1
-    bitwise-and                                 ; !!!@1176
+    push (LIT64 -2)                             ; !!!@1221 let _block_size = _block_size & -1
+    bitwise-and                                 ;
+    duplicate-addr                              ;
+    store8 (CONST8 _mem_man_freeing_block_size) ; !!!@1200
+                                                ;
+    duplicate-addr                              ; let (_mem_man_block_to_free_ptr, _block_size) = 
+    load8 (CONST8 _mem_man_block_to_free_ptr)   ;       call merge_block(_mem_man_block_to_free_ptr)
+    push-addr (LABEL32 _mem_man_handle_merges)  ;
+    call                                        ; !!!@1242
+    duplicate-addr                              ;
+    store8 (CONST8 _mem_man_block_to_free_ptr)  ;
     duplicate-addr                              ;
     store8 (CONST8 _mem_man_freeing_block_size) ;
                                                 ;
-    push (LIT64 0)                              ; !!!@1180
+    push (LIT64 0)                              ;
     push-addr (LABEL32 _mem_man_heap_free_ptr)  ;
     load8 (LIT8 0)                              ;
     duplicate-addr                              ; call _mem_man_init_block(
@@ -526,7 +545,7 @@
     duplicate-addr                              ;           _block_size, 
     load8 (CONST8 _mem_man_block_to_free_ptr)   ;           _mem_man_heap_free_ptr,
     push-addr (LABEL32 _mem_man_init_block)     ;           null
-    call                                        ; !!!@1207  )
+    call                                        ;
                                                 ;
     push-addr (LABEL32 _mem_man_free_block_no_err)
     jump-nez-i                                  ;
@@ -548,6 +567,224 @@
     push-addr (LABEL32 _mem_man_heap_free_ptr)  ; _mem_man_heap_free_ptr = _block_to_free_ptr
     store8 (LIT8 0)                             ;
                                                 ;
+    push-addr (LABEL32 sta_man_return_pop)      ;
+    jump                                        ; return
+
+    (DEF-LABEL _mem_man_handle_merges)          ; @arg 0 center_block_addr
+    (DEF-CONST _mem_man_merges_block_addr 0)    ; @ret 0 if error
+    (DEF-CONST _mem_man_merges_block_size 8)    ;      stack -> merged_block_addr -> merged_block_size
+    (DEF-CONST _mem_man_merges_left_addr 16)    ;
+    (DEF-CONST _mem_man_merges_left_size 24)    ;
+    (DEF-CONST _mem_man_merges_right_addr 32)   ;
+    (DEF-CONST _mem_man_merges_right_size 40)   ;
+                                                ;
+    (DEF-CONST _mem_man_merges_frame_size 48)   ;
+                                                ;
+    push (CONST64 _mem_man_merges_frame_size)   ; !!!@1336
+    push-addr (LABEL32 sta_man_push_frame)      ;
+    call                                        ;
+    pop-to-addr                                 ;
+                                                ; !!!@1352
+    duplicate                                   ;
+    duplicate-addr                              ; let merged_block_addr = center_block_addr
+    store8 (CONST8 _mem_man_merges_block_addr)  ;
+    pop-to-addr                                 ;
+    load8 (LIT8 0)                              ;
+    push (LIT64 -2)                             ;
+    bitwise-and                                 ;
+    duplicate-addr                              ; let merged_block_size = center_block_addr[0..8]
+    store8 (CONST8 _mem_man_merges_block_size)  ;
+                                                ;
+    duplicate-addr                              ; !!!@1372 let left_block_size = merged_block_addr[-8..0]
+    load8 (CONST8 _mem_man_merges_block_addr)   ;
+    push (LIT64 8)                              ;
+    subtract-i                                  ;
+    pop-to-addr                                 ;
+    load8 (LIT8 0)                              ;
+    duplicate                                   ;
+    duplicate-addr                              ;
+    store8 (CONST8 _mem_man_merges_left_size)   ;
+                                                ;
+    duplicate-addr                              ; !!!@1392
+    load8 (CONST8 _mem_man_merges_block_addr)   ;
+    swap                                        ;
+    subtract-i                                  ;
+    duplicate                                   ;
+    duplicate-addr                              ;
+    store8 (CONST8 _mem_man_merges_left_addr)   ;
+                                                ;
+    push-addr (LABEL32 _mem_man_heap_start)     ; !!!@1401
+    load8 (LIT8 0)                              ; if block isn't leftmost
+    subtract-i                                  ;
+    push-addr (LABEL32 _mem_man_merges_left_alloc)
+    jump-lez-i                                  ;
+                                                ;
+    duplicate-addr                              ; !!!@1398
+    load8 (CONST8 _mem_man_merges_left_size)    ;
+    duplicate-addr                              ;
+    push (LIT64 1)                              ; if 1 & left_block_size == 0 // Free left block
+    bitwise-and                                 ;
+    push-addr (LABEL32 _mem_man_merges_left_alloc)
+    jump-nez-i                                  ;
+                                                ;
+    duplicate-addr                              ;  merged_block_addr = merged_block_addr - left_block_size
+    load8 (CONST8 _mem_man_merges_block_addr)   ;
+    duplicate-addr                              ;
+    load8 (CONST8 _mem_man_merges_left_size)    ;
+    subtract-i                                  ;
+    duplicate-addr                              ;
+    store8 (CONST8 _mem_man_merges_block_addr)  ;
+                                                ;
+    duplicate-addr                              ;  call splice_out(merged_block_addr)
+    load8 (CONST8 _mem_man_merges_block_addr)   ;
+    push-addr (LABEL32 _mem_man_splice_out)     ;
+    call                                        ;
+                                                ;
+    push-addr (LABEL32 _mem_man_merges_left_no_err)
+    jump-nez-i                                  ;
+    pop-addr                                    ;
+    push-addr (LABEL32 sta_man_return_pop)      ;
+    push (LIT64 0)                              ;
+    call                                        ; return ERROR
+                                                ;
+    (DEF-LABEL _mem_man_merges_left_no_err)     ;
+    duplicate-addr                              ;  merged_block_size += left_block_size
+    load8 (CONST8 _mem_man_merges_block_size)   ;
+    duplicate-addr                              ;
+    load8 (CONST8 _mem_man_merges_left_size)    ;
+    add-i                                       ;
+    duplicate-addr                              ;
+    store8 (CONST8 _mem_man_merges_block_size)  ;
+                                                ;
+    (DEF-LABEL _mem_man_merges_left_alloc)      ;
+                                                ; !!!@1486
+    duplicate-addr                              ; let right_block_addr = merged_block_addr + merged_block_addr[0..8] 
+    load8 (CONST8 _mem_man_merges_block_size)   ;
+    duplicate-addr                              ;
+    load8 (CONST8 _mem_man_merges_block_addr)   ;
+    add-i                                       ;
+    duplicate-addr                              ;
+    duplicate                                   ;
+    store8 (CONST8 _mem_man_merges_right_addr)  ;
+                                                ;
+    pop-to-addr                                 ; let right_block_size = right_block_addr[0..8]
+    load8 (LIT8 0)                              ; !!!@1498
+    push (LIT64 -2)                             ;
+    bitwise-and                                 ;
+    duplicate-addr                              ;
+    duplicate                                   ;
+    store8 (CONST8 _mem_man_merges_right_size)  ;
+                                                ; !!!@1514
+    duplicate-addr                              ; if right_block_addr + right_block_size > heap_end, skip
+    load8 (CONST8 _mem_man_merges_right_addr)   ;
+    add-i                                       ;
+    push-addr (LABEL32 _mem_man_heap_end)       ;
+    load8 (LIT8 0)                              ;
+    subtract-i                                  ;
+    push-addr (LABEL32 _mem_man_merges_right_alloc)
+    jump-gez-i                                  ;
+                                                ; !!!@1532
+    duplicate-addr                              ;
+    load8 (CONST8 _mem_man_merges_right_addr)   ;
+    pop-to-addr                                 ;
+    load8 (LIT8 0)                              ;
+    push (LIT64 1)                              ; if 1 & right_block_size == 0 // Free right block
+    bitwise-and                                 ;
+    push-addr (LABEL32 _mem_man_merges_right_alloc)
+    jump-nez-i                                  ;
+                                                ;
+    duplicate-addr                              ;  call splice_out(right_block_addr)
+    load8 (CONST8 _mem_man_merges_right_addr)   ;
+    push-addr (LABEL32 _mem_man_splice_out)     ;
+    call                                        ;
+                                                ;
+    push-addr (LABEL32 _mem_man_merges_right_no_err)
+    jump-nez-i                                  ;
+    pop-addr                                    ;
+    push-addr (LABEL32 sta_man_return_pop)      ;
+    push (LIT64 0)                              ;
+    call                                        ; return ERROR
+                                                ;
+    (DEF-LABEL _mem_man_merges_right_no_err)    ;
+                                                ;
+    duplicate-addr                              ;  merged_block_size += right_block_size
+    load8 (CONST8 _mem_man_merges_block_size)   ;
+    duplicate-addr                              ;
+    load8 (CONST8 _mem_man_merges_right_size)   ;
+    add-i                                       ;
+    duplicate-addr                              ;
+    store8 (CONST8 _mem_man_merges_block_size)  ;
+                                                ;
+    (DEF-LABEL _mem_man_merges_right_alloc)     ;
+    duplicate-addr                              ; !!!@1595 return merged_block_addr, full_merged_size
+    load8 (CONST8 _mem_man_merges_block_size)   ;
+    load8 (CONST8 _mem_man_merges_block_addr)   ;
+    push-addr (LABEL32 sta_man_return_pop)      ;
+    jump                                        ; !!!@1605
+    
+
+    (DEF-LABEL _mem_man_splice_out)             ; @arg 0 block_addr
+    (DEF-CONST _mem_man_splice_block_addr 0)    ; @ret 0 if error, otherwise nonzero
+    (DEF-CONST _mem_man_splice_prev_addr 8)     ;
+    (DEF-CONST _mem_man_splice_next_addr 16)    ;
+                                                ;
+    (DEF-CONST _mem_man_split_frame_size 24)    ;
+                                                ;
+    push (CONST8 _mem_man_split_frame_size)     ;
+    push-addr (LABEL32 sta_man_push_frame)      ;
+    call                                        ;
+    pop-to-addr                                 ;
+                                                ;
+    duplicate                                   ;
+    duplicate-addr                              ;
+    store8 (CONST8 _mem_man_splice_block_addr)  ; let _block_addr = block_addr
+    duplicate                                   ;
+    pop-to-addr                                 ;
+    load4 (LIT8 8)                              ;
+    duplicate-addr                              ;
+    store8 (CONST8 _mem_man_splice_next_addr)   ; let _next_addr = block_addr[8..12]
+    pop-to-addr                                 ;
+    load4 (LIT8 12)                             ;
+    duplicate-addr                              ;
+    store8 (CONST8 _mem_man_splice_prev_addr)   ; let _prev_addr = block_addr[12..16]
+                                                ;
+    duplicate-addr                              ; if _prev_addr == null
+    load8 (CONST8 _mem_man_splice_prev_addr)    ;
+    push-addr (LABEL32 _mem_man_splice_has_prev);
+    jump-nez-i                                  ;
+    duplicate-addr                              ;
+    load8 (CONST8 _mem_man_splice_next_addr)    ;
+    push-addr (LABEL32 _mem_man_heap_free_ptr)  ;  _mem_man_heap_free_ptr = _next_addr
+    store8 (LIT8 0)                             ;
+    push-addr (LABEL32 _mem_man_splice_prev_done)
+    jump                                        ;
+                                                ;
+    (DEF-LABEL _mem_man_splice_has_prev)        ; else
+    duplicate-addr                              ;  _prev_addr[12..16] = _next_addr
+    load8 (CONST8 _mem_man_splice_next_addr)    ;
+    duplicate-addr                              ;
+    load8 (CONST8 _mem_man_splice_prev_addr)    ;
+    push (LIT64 12)                             ;
+    add-i                                       ;
+    pop-to-addr                                 ;
+    store4 (LIT8 0)                             ;
+                                                ;
+    (DEF-LABEL _mem_man_splice_prev_done)       ;
+                                                ;
+    duplicate-addr                              ; if _next_addr != null
+    load8 (CONST8 _mem_man_splice_next_addr)    ;
+    push-addr (LABEL32 _mem_man_splice_no_next) ;
+    jump-eqz-i                                  ;
+    duplicate-addr                              ;
+    load8 (CONST8 _mem_man_splice_prev_addr)    ;  _next_addr[8..12] = _prev_addr
+    duplicate-addr                              ;
+    push (LIT64 8)                              ;
+    add-i                                       ;
+    pop-to-addr                                 ;
+    store4 (LIT8 0)                             ;
+                                                ;
+    (DEF-LABEL _mem_man_splice_no_next)         ;
+    pop-addr                                    ;
     push-addr (LABEL32 sta_man_return_pop)      ;
     jump                                        ; return
 
