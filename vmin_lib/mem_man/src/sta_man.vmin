@@ -131,14 +131,14 @@
 
     (DEF-LABEL sta_man_set_limit)               ; @arg: memory address to set stack limit
     push-addr (LABEL32 _sta_man_cond_initialize); @ret: 0 if set failed, otherwise non-zero
-    call                                        ; !!!@1325
+    call                                        ;
                                                 ;
     duplicate                                   ;
-    push-addr (LABEL32 _sta_man_stack_pointer)  ; !!!@1327
+    push-addr (LABEL32 _sta_man_stack_pointer)  ;
     load8 (LIT8 0)                              ;
     subtract-i                                  ; stack -> new_limit - stack_pointer -> new_limit
     push-addr (LABEL32 _sta_man_set_limit_can_set)
-    jump-lez-i                                  ; !!!@1340
+    jump-lez-i                                  ;
     pop                                         ;
     push (LIT64 0)                              ;
     jump                                        ; return

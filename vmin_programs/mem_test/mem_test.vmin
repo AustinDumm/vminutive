@@ -3,11 +3,11 @@
     push-addr (LABEL32 first)
     call
     
-    push-addr (LABEL32 mem_man_alloc) ; 
+    push-addr (LABEL32 mem_man_alloc)
     push (LIT64 16)
     call
 
-    duplicate ; 
+    duplicate
     pop-to-addr
 
     push (LIT64 2222)
@@ -19,25 +19,45 @@
 
     swap
     push-addr (LABEL32 mem_man_free)
-    call ; !!!@61
+    call
 
     push (LIT64 8)
     push-addr (LABEL32 mem_man_alloc)
-    call ; !!!@76
+    call
 
     duplicate
     pop-to-addr
     push (LIT64 88)
     store8 (LIT8 0)
     
-    push-addr (LABEL32 mem_man_free) ; !!!@90 // SOMETHING IS FAILING HERE
+    push-addr (LABEL32 mem_man_free)
     call
     push-addr (LABEL32 mem_man_free)
     call
     
-    push (LABEL64 instr_end)
-    die
+    
+    push (LIT64 1048512)
+    push-addr (LABEL32 mem_man_alloc)
+    call
 
+    push (LIT64 8)
+    push-addr (LABEL32 mem_man_alloc)
+    call
+    
+    push (LIT64 8)
+    push-addr (LABEL32 mem_man_alloc)
+    call
+
+    push-addr (LABEL32 mem_man_free)
+    call
+    
+    push-addr (LABEL32 mem_man_free)
+    call
+    
+    push-addr (LABEL32 mem_man_free)
+    call
+    
+    die
     
     (DEF-LABEL first)
     push-addr (LABEL32 second)
