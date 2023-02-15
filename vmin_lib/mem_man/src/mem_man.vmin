@@ -818,5 +818,61 @@
     push-addr (LABEL32 sta_man_return_pop)      ;
     jump                                        ; return
 
+
+    (DEF-LABEL mem_man_copy)                    ; @arg0 count - number of elements to mem_man_copy
+    (DEF-CONST _mem_man_copy_count 0)           ; @arg1 from - addr to copy bytes from
+    (DEF-CONST _mem_man_copy_from 8)            ; @arg2 to - addr to copy bytes to
+    (DEF-CONST _mem_man_copy_to 16)             ; @ret NONE
+                                                ;
+    (DEF-CONST _mem_man_copy_frame_size 24)     ;
+                                                ;
+    push (CONST64 _mem_man_copy_frame_size)     ; !!!@1729
+    push-addr (LABEL32 sta_man_push_frame)      ;
+    call                                        ;
+    pop-to-addr                                 ; !!!@1744
+                                                ;
+    duplicate-addr                              ;
+    store8 (CONST8 _mem_man_copy_count)         ;
+    duplicate-addr                              ;
+    store8 (CONST8 _mem_man_copy_from)          ;
+    duplicate-addr                              ;
+    store8 (CONST8 _mem_man_copy_to)            ;
+                                                ;
+    duplicate-addr                              ; !!!@1754
+    load8 (CONST8 _mem_man_copy_count)          ;
+                                                ;
+    (DEF-LABEL _mem_man_copy_loop)              ; stack -> count
+    duplicate                                   ;
+    push-addr (LABEL32 _mem_man_copy_done)      ;
+    jump-lez-i                                  ;
+                                                ;
+    push (LIT64 1)                              ; !!!@1764
+    subtract-i                                  ; stack -> current_count
+    duplicate                                   ;
+    duplicate                                   ; stack -> c_c -> c_c -> c_c
+    duplicate-addr                              ;
+    load8 (CONST8 _mem_man_copy_from)           ;
+    add-i                                       ; stack -> c_c + from_addr -> c_c -> c_c
+                                                ;
+    swap                                        ;
+    duplicate-addr                              ;
+    load8 (CONST8 _mem_man_copy_to)             ;
+    add-i                                       ; stack -> c_c + to -> c_c + from -> c_c
+                                                ;
+    pop-to-addr                                 ;
+    pop-to-addr                                 ;
+                                                ;
+    load1 (LIT8 0)                              ;
+    store1 (LIT8 0)                             ;
+                                                ; stack -> c_c
+    push-addr (LABEL32 _mem_man_copy_loop)      ;
+    jump                                        ;
+                                                ;
+    (DEF-LABEL _mem_man_copy_done)              ;
+    pop                                         ; !!!1797
+    pop-addr                                    ;
+    push-addr (LABEL32 sta_man_return_pop)      ;
+    jump                                        ;
+
     (INCLUDE "/Users/adumm/Dev/MessageExperiments/vmin_lib/mem_man/src/sta_man.vmin")
 )
