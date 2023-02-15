@@ -598,6 +598,7 @@
     push-addr (LABEL32 _mem_man_heap_free_ptr)  ; _mem_man_heap_free_ptr = _block_to_free_ptr
     store8 (LIT8 0)                             ;
                                                 ;
+    push (LIT64 1)                              ;
     push-addr (LABEL32 sta_man_return_pop)      ;
     jump                                        ; return
 
@@ -873,6 +874,91 @@
     pop-addr                                    ;
     push-addr (LABEL32 sta_man_return_pop)      ;
     jump                                        ;
+
+
+    (DEF-LABEL mem_man_ralloc)                  ; @arg0 addr - block addr to re-allocate
+    (DEF-CONST _mem_man_ralloc_old 0)           ; @arg1 count - new block size
+    (DEF-CONST _mem_man_ralloc_block_size 8)    ; @ret 0 if failure, old block unallocated
+    (DEF-CONST _mem_man_ralloc_new 16)          ;     -1 if unrecoverable, old block state unknown
+                                                ;      <new_block_addr> if reallocation succeeds
+    (DEF-CONST _mem_man_ralloc_frame_size 16)   ;
+                                                ;
+    push (CONST64 _mem_man_ralloc_frame_size)   ; !!!@1781
+    push-addr (LABEL32 sta_man_push_frame)      ;
+    call                                        ;
+    pop-to-addr                                 ; !!!@1796
+                                                ;
+    duplicate-addr                              ;
+    store8 (CONST8 _mem_man_ralloc_old)         ;
+    duplicate-addr                              ;
+    store8 (CONST8 _mem_man_ralloc_block_size)  ;
+                                                ;
+    duplicate-addr                              ;
+    load8 (CONST8 _mem_man_ralloc_old)          ;
+    push (LIT64 8)                              ;
+    subtract-i                                  ;
+    pop-to-addr                                 ;
+    load8 (LIT8 0)                              ; stack -> *old_addr
+    push (LIT64 -2)                             ;
+    bitwise-and                                 ;
+    duplicate-addr                              ;
+    load8 (CONST8 _mem_man_ralloc_block_size)   ;
+    subtract-i                                  ; stack -> old_size - new_size
+    push-addr (LABEL32 _mem_man_ralloc_larger)  ;
+    jump-ltz-i                                  ;
+    load8 (CONST8 _mem_man_ralloc_old)          ;
+    push-addr (LABEL32 sta_man_return_pop)      ;
+    jump                                        ; Return old block, requested size is smaller
+                                                ;
+    (DEF-LABEL _mem_man_ralloc_larger)          ; !!!@1847
+    duplicate-addr                              ;
+    load8 (CONST8 _mem_man_ralloc_block_size)   ;
+    push-addr (LABEL32 mem_man_alloc)           ; !!!@1850
+    call                                        ;
+                                                ;
+    duplicate                                   ; !!!@1856
+    push-addr (LABEL32 _mem_man_ralloc_al_ok)   ;
+    jump-gez-i                                  ;
+    pop-addr                                    ;
+    push (LIT64 0)                              ;
+    jump                                        ; Return 0, allocation failed
+                                                ;
+    (DEF-LABEL _mem_man_ralloc_al_ok)           ; stack -> new_block_addr
+    duplicate-addr                              ; !!!@1874
+    duplicate                                   ;
+    store8 (CONST8 _mem_man_ralloc_new)         ;
+                                                ;
+    duplicate-addr                              ;
+    load8 (CONST8 _mem_man_ralloc_old)          ;
+    duplicate                                   ; stack -> old_addr -> old_addr -> new_addr
+    push (LIT64 8)                              ;
+    subtract-i                                  ;
+    pop-to-addr                                 ;
+    load8 (LIT8 0)                              ;
+    push (LIT64 -2)                             ;
+    bitwise-and                                 ;
+    push (LIT64 16)                             ;
+    subtract-i                                  ; stack -> old_data_size -> old_addr -> new_addr
+                                                ;
+    push-addr (LABEL32 mem_man_copy)            ;
+    call                                        ; mem_man_copy(count, from_addr, to_addr)
+                                                ; stack ->
+    duplicate-addr                              ; !!!@1921
+    load8 (CONST8 _mem_man_ralloc_old)          ;
+    push-addr (LABEL32 mem_man_free)            ;
+    call                                        ; stack -> free_state
+                                                ;
+    push-addr (LABEL32 _mem_man_ralloc_free_ok) ; !!!@1939
+    jump-nez-i                                  ;
+    pop-addr                                    ;
+    push (LIT64 -1)                             ;
+    push-addr (LABEL32 sta_man_return_pop)      ;
+    jump                                        ; Return -1, failure during free
+
+    (DEF-LABEL _mem_man_ralloc_free_ok)         ;
+    load8 (CONST8 _mem_man_ralloc_new)          ; !!!@1961
+    push-addr (LABEL32 sta_man_return_pop)      ;
+    jump                                        ; Return new block addr
 
     (INCLUDE "/Users/adumm/Dev/MessageExperiments/vmin_lib/mem_man/src/sta_man.vmin")
 )
