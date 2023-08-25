@@ -11,6 +11,16 @@
     ; mem_man_free(addr_of_block) frees the block at addr_of_block for
     ;   reallocation by a future call to mem_man_alloc.
     ;
+    ; mem_man_copy(byte_count, from_addr, to_addr) copies #byte_count
+    ;   contiguous bytes starting at from_addr over to the same size of
+    ;   contiguous memory starting at to_addr.
+    ;
+    ; mem_man_ralloc(addr_of_block, count) forms a potentially new allocation
+    ;   of at least size count with the contents of the block at addr_of_block.
+    ;   Returns 0 if the reallocation has failed but the block at addr_of_block has
+    ;   been unaffected and is still valid.
+    ;   Returns -1 if the reallocation has failed and the state of the block at
+    ;   addr_of_block is unknown.
 
 
     (DEF-CONST mem_man_null 0)
@@ -878,7 +888,7 @@
 
     (DEF-LABEL mem_man_ralloc)                  ; @arg0 addr - block addr to re-allocate
     (DEF-CONST _mem_man_ralloc_old 0)           ; @arg1 count - new block size
-    (DEF-CONST _mem_man_ralloc_block_size 8)    ; @ret 0 if failure, old block unallocated
+    (DEF-CONST _mem_man_ralloc_block_size 8)    ; @ret 0 if failure, old block unaffected
     (DEF-CONST _mem_man_ralloc_new 16)          ;     -1 if unrecoverable, old block state unknown
                                                 ;      <new_block_addr> if reallocation succeeds
     (DEF-CONST _mem_man_ralloc_frame_size 16)   ;
