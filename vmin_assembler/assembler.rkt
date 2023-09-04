@@ -60,8 +60,11 @@
     (if (empty? prefixes)
         (open-input-file file-name)
         (with-handlers ([exn:fail:filesystem:errno?
-                         (lambda (_) (try-open-file file-name (rest prefixes)))])
+                         (lambda (_) 
+                           (try-open-file file-name (rest prefixes)))])
           (let* ((next-prefix (first prefixes))
+                 (env-prefix (getenv next-prefix))
+                 (next-prefix (if (boolean? env-prefix) next-prefix env-prefix))
                  (full-file-name (string-append next-prefix "/" file-name))
                  (input-file (open-input-file full-file-name)))
             input-file))))
@@ -77,11 +80,11 @@
 
 (define (process-include
          instruction-list)
-  (append-map (lambda (instruction)
+  (process-lib-prefixes (append-map (lambda (instruction)
                 (if (include? instruction)
                     (fetch-include instruction)
                     (list instruction)))
-              instruction-list))
+              instruction-list)))
 
 (define (script? instruction)
   (and (list? instruction)
@@ -91,10 +94,10 @@
 (define namespace (namespace-anchor->namespace anc))
 (define (process-scripts
          instruction-list)
-  (map (lambda (instruction)
+  (append-map (lambda (instruction)
          (if (script? instruction)
              (eval (list-ref instruction 1) namespace)
-             instruction))
+             (list instruction)))
        instruction-list))
 
 (define (instructions->codes
@@ -109,7 +112,8 @@
                 instruction)
                (else
                 (raise-user-error
-                 "Invalid item found in instructions"))))
+                 "Invalid item found in instructions"
+                 instruction))))
        instruction-list))
 
 (define assemble

@@ -1,0 +1,154 @@
+(
+    (LIB "VMIN_LIB")
+    ; data
+    ; Management of little-endian bytestrings by name "data" to differentiate from Strings formatted for output
+    ;
+    ; Note, data bytestrings are not suffixed by any delimiter and length must always be provided
+
+    (DEF-LABEL data_compare)                    ; Byte by byte comparison of data1 and data2. 
+                                                ; Data is compared as little-endian.
+    (DEF-CONST _data_compare_data1       0)     ; @arg0 data_1 - Pointer to first data item to compare
+    (DEF-CONST _data_compare_data2       8)     ; @arg1 data_2 - Pointer to second data item to compare
+    (DEF-CONST _data_compare_length     16)     ; @arg2 length - Maximum length in bytes to compare
+    (DEF-CONST _data_compare_frame_size 24)     ; @ret cmp - Negative if data_1 < data_2
+                                                ;          - Positive if data_1 > data_2
+    push (CONST64 _data_compare_frame_size)     ;          - Zero if data_1 = data_2
+    push-addr (LABEL32 sta_man_push_frame)      ;
+    call                                        ;
+    pop-to-addr                                 ;
+                                                ;
+    duplicate-addr                              ;
+    store8 (CONST8 _data_compare_data1)         ;
+    duplicate-addr                              ;
+    store8 (CONST8 _data_compare_data2)         ;
+    duplicate-addr                              ;
+    duplicate                                   ;
+    store8 (CONST8 _data_compare_length)        ;
+                                                ; stack -> ... -> length   
+    (DEF-LABEL _data_compare_loop)              ;
+    duplicate                                   ;
+    push-addr (LABEL32 _data_compare_continue)  ;
+    jump-gtz-i                                  ;
+                                                ;
+    pop                                         ;
+    push (LIT64 0)                              ; No data left, the two data are the same
+    push-addr (LABEL32 sta_man_return_pop)      ;
+    jump                                        ;
+                                                ;
+    (DEF-LABEL _data_compare_continue)          ;
+    push (LIT64 1)                              ;
+    subtract-i                                  ;
+    duplicate                                   ;
+    push (LIT64 1)                              ;
+    add-i
+    duplicate-addr                              ;
+    load8 (CONST8 _data_compare_length)         ;
+    subtract-i                                  ;
+    duplicate                                   ; stack -> ... -> length - 1 -> index -> index
+                                                ;
+    duplicate-addr                              ;
+    load8 (CONST8 _data_compare_data2)          ;
+    add-i                                         ;
+    pop-to-addr                                 ;
+    load8 (LIT8 0)                              ;
+    swap                                        ;
+                                                ; stack -> ... -> length - 1 -> data2[index] -> index
+    duplicate-addr                              ;
+    load8 (CONST8 _data_compare_data1)          ;
+    add-i                                        ;
+    pop-to-addr                                 ;
+    load8 (LIT8 0)                              ;
+                                                ;
+    subtract-i                                  ; stack -> ... -> length - 1 -> data1[index] - data2[index]
+    
+    duplicate                                   ;
+    push-addr (LABEL32 _data_compare_diff)      ;
+    jump-nez-i                                  ;
+    pop                                         ;
+    push-addr (LABEL32 _data_compare_loop)      ;
+    jump                                        ;
+                                                ;
+    (DEF-LABEL _data_compare_diff)              ;
+    swap                                        ;
+    pop                                         ;
+    push-addr (LABEL32 sta_man_return_pop)      ;
+    jump                                        ;
+                                                ;
+                                                ; data_copy_# - Function for copying data with # byte resolution
+                                                ; # - The number of bytes to copy at a time from src to dest
+                                                ; @arg1 src  - Pointer to the source address 
+                                                ; @arg2 dest - Pointer to the destination address
+                                                ; @arg3 n    - Number of data of resolution # to copy
+                                                ;            - i.e., n * # bytes will be copied from src to dest
+                                                ;            - e.g. data_copy_5(src, dest, 6) will copy 5 * 6 =
+                                                ;                   30 bytes from src to dest
+                                                ; @ret none
+    (SCRIPT
+        (append-map (lambda (i)
+            (define func-string (string-append "data_copy_" (number->string i)))
+            (define func-symbol (string->symbol func-string))
+            (define (func-prefix item)
+                (string->symbol (string-append "_" func-string "_" item)))
+
+            `(
+                (DEF-LABEL ,func-symbol)
+                (DEF-CONST ,(func-prefix "src") 0)
+                (DEF-CONST ,(func-prefix "dest") 8)
+                (DEF-CONST ,(func-prefix "n") 16)
+                (DEF-CONST ,(func-prefix "frame_size") 24)
+                
+                push (CONST64 ,(func-prefix "frame_size"))
+                push-addr (LABEL32 sta_man_push_frame)
+                call
+                pop-to-addr
+
+                duplicate-addr
+                store8 (CONST8 ,(func-prefix "src"))
+                duplicate-addr
+                store8 (CONST8 ,(func-prefix "dest"))
+                push (LIT64 ,i)
+                multiply-i
+                duplicate-addr
+                store8 (CONST8 ,(func-prefix "n"))
+
+                push (LIT64 0)
+
+                (DEF-LABEL ,(func-prefix "loop"))
+
+                duplicate
+                duplicate-addr
+                load8 (CONST8 ,(func-prefix "n"))
+                subtract-i
+                push-addr (LABEL32 ,(func-prefix "end"))
+                jump-gez-i
+
+                duplicate
+                duplicate
+                duplicate-addr
+                load8 (CONST8 ,(func-prefix "src"))
+                add-i
+                pop-to-addr
+                ,(string->symbol (string-append "load" (number->string i))) (LIT8 0)
+                swap
+                duplicate-addr
+                load8 (CONST8 ,(func-prefix "dest"))
+                add-i
+                pop-to-addr
+                ,(string->symbol (string-append "store" (number->string i))) (LIT8 0)
+
+                push (LIT64 ,i)
+                add-i
+
+                push-addr (LABEL32 ,(func-prefix "loop"))
+                jump
+
+                (DEF-LABEL ,(func-prefix "end"))
+                pop
+                pop-addr
+                push-addr (LABEL32 sta_man_return_pop)
+                jump
+            ))
+        (range 1 9)))
+
+    (INCLUDE "mem_man/mem_man.vmin")
+)

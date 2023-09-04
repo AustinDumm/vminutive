@@ -1,0 +1,35 @@
+(
+    push (LIT64 64)
+    push-addr (LABEL32 mem_man_alloc)
+    call
+    pop-to-addr
+    
+    push (LIT64 305419896)
+    duplicate
+    duplicate-addr
+    store8 (LIT8 0)
+    duplicate-addr
+    pop-to-stack
+    push (LIT64 8)
+    add-i
+    pop-to-addr
+    store8 (LIT8 0)
+
+    push (LIT64 2)
+    pop-to-stack
+    duplicate
+    push (LIT64 16)
+    add-i
+    swap
+
+    push-addr (LABEL32 data_copy_1)
+    call
+    push (LIT64 0)
+    die
+
+    (LIB "VMIN_LIB")
+
+    (INCLUDE "data/data.vmin")
+    (INCLUDE "mem_man/mem_man.vmin")
+    (INCLUDE "mem_man/sta_man.vmin")
+)

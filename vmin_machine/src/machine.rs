@@ -3,6 +3,15 @@ use std::{collections::{HashMap, VecDeque, HashSet}, hash::Hash};
 
 use crate::instruction::Instruction;
 
+#[cfg(feature = "machine_log")]
+macro_rules! log {
+    ($( $args:tt )*) => { println!( $( $args )* ) }
+}
+#[cfg(not(feature = "machine_log"))]
+macro_rules! log {
+    ($( $args:tt )*) => { () }
+}
+
 #[derive(PartialEq, Clone, Debug)]
 enum HoldReason {
     RegisterPort(u16),
@@ -287,7 +296,7 @@ impl Machine {
                 active_program_counter
             ))?;
 
-        println!(
+        log!(
             "!!! PId: {},\n\tinstruction: {:?}@{},\n\tstack: {:?}\n\taddr-stack: {:?}",
             active_process_id,
             instruction,
@@ -295,7 +304,7 @@ impl Machine {
             active_process.stack.iter().map(|i| *i as i64).collect::<Vec<i64>>(),
             active_process.addr_stack.iter().map(|i| *i as i64).collect::<Vec<i64>>(),
         );
-        let start = 0x8d8;
+        let start = 0xc18;
         let end = start + 256;
         let mem = (start..end).step_by(8)
             .map(|addr| {
@@ -316,8 +325,8 @@ impl Machine {
 
                 i64::from_le_bytes(bytes.try_into().unwrap())
             });
-        for (value, addr) in mem.zip((start..end).step_by(8)) { println!("!!! \t{}=0x{:0x}: [{}]", addr, addr, value) }
-        println!("!!! ====================");
+        for (value, addr) in mem.zip((start..end).step_by(8)) { log!("!!! \t{}=0x{:0x}: [{}=0x{:0x}]", addr, addr, value, value) }
+        log!("!!! ====================");
         let start = 0xFFFFFF80;
         let end = 0xFFFFFFFF;
         let mem = (start..end).step_by(8)
@@ -339,7 +348,7 @@ impl Machine {
 
                 u64::from_le_bytes(bytes.try_into().unwrap())
             });
-        for (value, addr) in mem.zip((start..end).step_by(8)).rev() { println!("!!! \t{:0x}: [{}]", addr, value) }
+        for (value, addr) in mem.zip((start..end).step_by(8)).rev() { log!("!!! \t{:0x}: [{}]", addr, value) }
 
         let pc_offset: usize =
             match instruction {

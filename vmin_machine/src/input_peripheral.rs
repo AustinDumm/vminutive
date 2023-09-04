@@ -13,7 +13,7 @@ impl InputPeripheral {
         thread::spawn(move || loop {
             let mut buf = [0u8; 1];
             std::io::stdin().read_exact(&mut buf).expect("Failed to read byte in from stdin");
-            tx.send(buf[1]).expect("Failed to send byte across channel");
+            tx.send(buf[0]).expect("Failed to send byte across channel");
         });
 
         Peripheral {

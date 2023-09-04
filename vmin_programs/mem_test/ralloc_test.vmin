@@ -47,5 +47,6 @@
 
     die
     
-    (INCLUDE "/Users/adumm/Dev/MessageExperiments/vmin_lib/mem_man/src/mem_man.vmin")
+    (LIB "VMIN_LIB")
+    (INCLUDE "mem_man/src/mem_man.vmin")
 )

@@ -1,4 +1,5 @@
 (
+    (LIB "VMIN_HOME")
     ; Heap and Stack memory manager
     ; Contains a memory manager for a 1 MiB heap with manual alloc and
     ; free functions. Also contains the sta_man implementation for stack
@@ -970,5 +971,5 @@
     push-addr (LABEL32 sta_man_return_pop)      ;
     jump                                        ; Return new block addr
 
-    (INCLUDE "/Users/adumm/Dev/MessageExperiments/vmin_lib/mem_man/src/sta_man.vmin")
+    (INCLUDE "mem_man/sta_man.vmin")
 )

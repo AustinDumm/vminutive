@@ -9,5 +9,8 @@ edition = "2021"
 name = "vmin_machine"
 path = "src/lib.rs"
 
+[features]
+"machine_log" = []
+
 [dependencies]
 enum-repr = "0.2.6"
